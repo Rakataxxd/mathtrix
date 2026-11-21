@@ -172,6 +172,11 @@ function vRes(v) {
 }
 const SELECT_V = `SELECT v.*, u.nombre autor, u.color autor_color, (SELECT COUNT(*) FROM likes l WHERE l.video_id=v.id AND l.valor=1) likes FROM videos v LEFT JOIN usuarios u ON u.id=v.autor_id`;
 
+// landing publica: reels reales para mostrar sin iniciar sesion
+app.get('/api/publico/demo', (_r, s) => {
+  const v = todos(`${SELECT_V} WHERE v.publico=1 AND v.formato='vertical' AND v.timeline LIKE '%"pregunta"%' ORDER BY likes DESC, v.id DESC LIMIT 3`);
+  s.json(v.map((x) => ({ id: x.id, titulo: x.titulo, timeline: json(x.timeline) })));
+});
 app.get('/api/feed', req(), (r, s) => {
   const formato = r.query.formato === 'vertical' ? 'vertical' : r.query.formato === 'horizontal' ? 'horizontal' : null;
   const vids = todos(`${SELECT_V} WHERE v.publico=1 ${formato ? "AND v.formato='" + formato + "'" : ''} ORDER BY v.id DESC LIMIT 300`);
@@ -259,8 +264,8 @@ app.post('/api/lecciones/:id/pregenerar', req('alumno'), (r, s) => {
   if (!l) return s.status(404).json({ error: 'Clase no encontrada' });
   const formato = r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical';
   const k = `${r.u.id}:${l.id}:${formato}`;
-  if (!pre.has(k) || !trabajos.has(pre.get(k))) pre.set(k, lanzar(r.u, l, formato));
-  s.json({ ok: true });
+  if (!pre.has(k) || !trabajos.has(pre.get(k)) || trabajos.get(pre.get(k)).estado === 'error') pre.set(k, lanzar(r.u, l, formato));
+  s.json({ ok: true, trabajo: pre.get(k) });
 });
 app.post('/api/generar-libre', req(), (r, s) => {
   const tema = String(r.body?.tema || '').slice(0, 120);

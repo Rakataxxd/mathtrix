@@ -12,7 +12,7 @@ export function Clases() {
   const [cod, setCod] = useState('');
   const [f, setF] = useState({ titulo: '', grado: '', descripcion: '', cnb: usuario.curriculo !== 'general' });
   const [err, setErr] = useState(null);
-  const [abrir, setAbrir] = useState(false);
+  const [abrir, setAbrir] = useState(() => new URLSearchParams(window.location.search).has('nueva'));
   const cargar = () => api('/cursos').then(setCursos);
   useEffect(() => { cargar(); }, []);
   const unirse = async (e) => { e.preventDefault(); setErr(null); try { const r = await api('/cursos/unirse', { cuerpo: { codigo: cod } }); nav('/curso/' + r.curso_id); } catch (x) { setErr(x.message); } };

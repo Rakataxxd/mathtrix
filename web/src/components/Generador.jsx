@@ -1,82 +1,63 @@
-// Progreso en vivo de la generacion (Server-Sent Events): el guion se ve mientras Haiku lo escribe.
+// Progreso en vivo de la generacion (Server-Sent Events). Minimalista: titulo, una barra y el paso actual.
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, X, Cpu } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 
-const ETAPAS = [
-  { k: 'perfil', txt: 'Analizando tu perfil y tu forma de aprender' },
-  { k: 'guion', txt: 'Escribiendo el guion: gancho → contenido → reto' },
-  { k: 'calculo', txt: 'Calculando cada paso con sympy (fracciones exactas)' },
-  { k: 'verificacion', txt: 'Verificando que el resultado cierre' },
-  { k: 'voz', txt: 'Grabando la voz neural y los subtítulos' },
-  { k: 'listo', txt: 'Armando las animaciones' },
-];
+const PASOS = { perfil: [6, 'Leyendo tus gustos'], guion: [12, 'Escribiendo tu gancho'], calculo: [70, 'Calculando cada paso exacto'], verificacion: [78, 'Verificando el resultado'], voz: [88, 'Grabando la voz'], listo: [100, '¡Listo!'] };
 
-export function Generador({ trabajo, onCerrar }) {
-  const nav = useNavigate();
-  const [hechas, setHechas] = useState({});
-  const [actual, setActual] = useState('perfil');
-  const [msgs, setMsgs] = useState({});
-  const [titulo, setTitulo] = useState(null);
-  const [cola, setCola] = useState('');
-  const [avisos, setAvisos] = useState([]);
-  const [error, setError] = useState(null);
-  const [t0] = useState(Date.now());
-  const [ahora, setAhora] = useState(Date.now());
-  const [listo, setListo] = useState(null);
-
-  useEffect(() => { const iv = setInterval(() => setAhora(Date.now()), 100); return () => clearInterval(iv); }, []);
+export function useTrabajo(trabajo) {
+  const [st, setSt] = useState({ p: 3, paso: 'Preparando…', titulo: null, cola: '', error: null, listo: null });
   useEffect(() => {
     if (!trabajo) return;
     const es = new EventSource('/api/trabajos/' + trabajo);
-    const orden = ETAPAS.map((e) => e.k);
-    const marcar = (k) => setHechas((h) => { const n = { ...h }; for (const x of orden.slice(0, orden.indexOf(k))) n[x] = true; return n; });
     es.onmessage = (m) => {
       const ev = JSON.parse(m.data);
-      if (ev.etapa === 'escribiendo') { setCola(ev.cola || ''); return; }
-      if (ev.etapa === 'titulo' || ev.titulo) setTitulo(ev.titulo);
-      if (ev.etapa === 'aviso') { setAvisos((a) => [...a, ev.msg]); return; }
-      if (ev.etapa === 'guion_ok') { setMsgs((x) => ({ ...x, guion: ev.msg })); return; }
-      if (ev.etapa === 'error') { setError(ev.msg); es.close(); return; }
-      if (orden.includes(ev.etapa)) { setActual(ev.etapa); marcar(ev.etapa); setMsgs((x) => ({ ...x, [ev.etapa]: ev.msg })); }
-      if (ev.etapa === 'listo') {
-        es.close(); setHechas(Object.fromEntries(orden.map((k) => [k, true]))); setListo(ev);
-        setTimeout(() => nav('/ver/' + ev.video_id + '?nuevo=1'), 900);
-      }
+      setSt((s) => {
+        const n = { ...s };
+        if (ev.titulo) n.titulo = ev.titulo;
+        if (ev.etapa === 'escribiendo') { n.cola = ev.cola || ''; n.p = Math.max(s.p, Math.min(66, 12 + (ev.chars || 0) / 70)); }
+        else if (PASOS[ev.etapa]) { n.p = Math.max(s.p, PASOS[ev.etapa][0]); n.paso = PASOS[ev.etapa][1]; }
+        if (ev.etapa === 'error') n.error = ev.msg;
+        if (ev.etapa === 'listo') n.listo = ev;
+        return n;
+      });
+      if (ev.etapa === 'listo' || ev.etapa === 'error') es.close();
     };
-    es.onerror = () => {};
     return () => es.close();
   }, [trabajo]);
+  return st;
+}
 
-  const seg = ((listo?.ms ?? ahora - t0) / 1000).toFixed(1);
+export function Progreso({ st, t0 }) {
+  const [ahora, setAhora] = useState(Date.now());
+  useEffect(() => { if (st.listo || st.error) return; const iv = setInterval(() => setAhora(Date.now()), 200); return () => clearInterval(iv); }, [st.listo, st.error]);
+  const seg = ((st.listo?.ms ?? ahora - t0) / 1000).toFixed(0);
+  return (
+    <div>
+      <div className="entre" style={{ alignItems: 'flex-start' }}>
+        <h2 style={{ fontSize: 20, lineHeight: 1.3, minHeight: 52 }}>{st.titulo || 'Inventando un gancho para vos…'}</h2>
+        <span className="reloj">{seg}s</span>
+      </div>
+      <div className="gen-barra"><div style={{ width: `${st.p}%` }} /></div>
+      <div className="gen-paso">{st.error ? <span className="error">No se pudo: {st.error}</span> : <><Sparkles size={13} style={{ verticalAlign: -2, marginRight: 6 }} />{st.paso}</>}</div>
+      {!st.listo && !st.error && st.cola && <div className="gen-texto">{st.cola}</div>}
+    </div>
+  );
+}
+
+export function Generador({ trabajo, onCerrar }) {
+  const nav = useNavigate();
+  const [t0] = useState(Date.now());
+  const st = useTrabajo(trabajo);
+  useEffect(() => { if (st.listo) setTimeout(() => nav('/ver/' + st.listo.video_id + '?nuevo=1'), 700); }, [st.listo]);
   return (
     <div className="modal">
       <div className="caja">
-        <div className="entre">
-          <div>
-            <div className="badge lima"><Cpu size={13} />Generando tu video personalizado</div>
-            <h2 style={{ marginTop: 10, minHeight: 28 }}>{titulo || 'Inventando un gancho ridículo…'}</h2>
-          </div>
-          <div className="reloj">{seg}s</div>
+        <div className="entre" style={{ marginBottom: 14 }}>
+          <span className="badge lima">Tu video personalizado</span>
+          {!st.listo && <button className="btn chico ico fant" onClick={onCerrar} aria-label="Cerrar"><X size={17} /></button>}
         </div>
-        <div className="etapas">
-          {ETAPAS.map((e) => {
-            const ok = hechas[e.k], on = !ok && actual === e.k && !error;
-            return (
-              <div key={e.k} className={'etapa' + (ok ? ' ok' : on ? ' on' : '')}>
-                <div className="pt">{ok && <Check size={14} strokeWidth={3} />}</div>
-                <div><div style={{ fontWeight: 700 }}>{e.txt}</div>{msgs[e.k] && <div className="dim" style={{ fontSize: 13, marginTop: 2 }}>{msgs[e.k]}</div>}</div>
-              </div>
-            );
-          })}
-          {avisos.map((a, i) => <div key={i} className="etapa aviso"><div className="pt" style={{ borderColor: 'var(--oro)' }}>!</div><div style={{ fontSize: 13 }}>{a}</div></div>)}
-        </div>
-        {actual === 'guion' && !hechas.guion && <div className="terminal">{cola || 'esperando el primer token…'}<span style={{ animation: 'gira 1s steps(2) infinite' }}>▌</span></div>}
-        {error && <div className="error" style={{ marginTop: 16 }}>No se pudo generar: {error}</div>}
-        <div className="entre" style={{ marginTop: 20 }}>
-          <div className="dim" style={{ fontSize: 12.5 }}>Haiku 5.5 escribe · sympy calcula · el video es código: se dibuja en tu navegador, sin renderizar.</div>
-          {(error || !listo) && <button className="btn chico" onClick={onCerrar}><X size={15} />{error ? 'Cerrar' : 'Ocultar'}</button>}
-        </div>
+        <Progreso st={st} t0={t0} />
       </div>
     </div>
   );

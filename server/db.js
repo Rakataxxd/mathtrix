@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
+try { process.loadEnvFile(join(RAIZ, '.env')); } catch {}
 export const DATA = process.env.MATHTRIX_DATA || join(RAIZ, 'data');
 mkdirSync(join(DATA, 'uploads'), { recursive: true });
 mkdirSync(join(DATA, 'media', 'tts'), { recursive: true });

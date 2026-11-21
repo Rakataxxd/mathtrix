@@ -1,72 +1,61 @@
-// Cuestionario inicial: conoce al alumno (gustos, idolos, metas, como aprende) para personalizar cada video.
+// Conocer al alumno en 3 pasos (todo se puede saltar): gustos, metas y como aprende.
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check } from 'lucide-react';
 import { api, useSesion } from '../api.js';
-import { codEmoji } from '../video/fx.jsx';
 import { SelectorEstilo } from '../components/SelectorEstilo.jsx';
 
-const PASOS = [
-  { k: 'gustos', t: '¿Qué te gusta?', s: 'Elegí todo lo que quieras. Con esto inventamos los ganchos.', multi: true, ops: [['Fútbol', '⚽'], ['Videojuegos', '🎮'], ['Música', '🎧'], ['Autos', '🏎️'], ['Dinero y negocios', '💰'], ['Moda y tenis', '👟'], ['Redes sociales', '📱'], ['Anime', '🍥'], ['Espacio', '🚀'], ['Comida', '🍕'], ['Básquet', '🏀'], ['Animales', '🐶'], ['Series y cine', '🎬'], ['Arte y dibujo', '🎨'], ['Tecnología', '🤖'], ['Gym', '💪']] },
-  { k: 'idolos', t: '¿A quién seguís o admirás?', s: 'Famosos, creadores, deportistas… o agregá el tuyo.', multi: true, libre: true, ops: [['Messi', '🐐'], ['Cristiano Ronaldo', '⚽'], ['Bad Bunny', '🐰'], ['Peso Pluma', '🎤'], ['Karol G', '💖'], ['Taylor Swift', '🎸'], ['MrBeast', '💸'], ['Ibai', '🎙️'], ['Elon Musk', '🚀'], ['LeBron James', '🏀'], ['Shakira', '💃'], ['Fede Valverde', '🇺🇾']] },
-  { k: 'metas', t: '¿Qué metas tenés?', s: 'Nadie más lo ve, solo sirve para que los videos te hablen a vos.', multi: true, ops: [['Ser millonario', '🤑'], ['Tener mi negocio', '🏪'], ['Ser futbolista', '⚽'], ['Ser creador de contenido', '📹'], ['Ir a la universidad', '🎓'], ['Viajar por el mundo', '✈️'], ['Ser ingeniero/a', '🛠️'], ['Ser médico/a', '🩺'], ['Comprar mi carro', '🚗'], ['Ser gamer pro', '🕹️'], ['Ayudar a mi familia', '🏡'], ['Programar apps', '💻']] },
-  { k: 'ambicion', t: 'En 10 años quiero…', s: 'Escribilo con tus palabras. Entre más loco, mejores ganchos.', texto: true, ph: 'Tener un Lamborghini, jugar en Europa y comprarle casa a mi mamá' },
-  { k: 'aprende', t: '¿Cómo aprendés mejor?', s: 'Esto cambia cómo se explica cada video.', multi: true, ops: [['Con ejemplos visuales', '👀'], ['Paso a paso y despacio', '🐢'], ['Con historias', '📖'], ['Con retos y competencia', '🏆'], ['Rápido y directo', '⚡'], ['Repitiendo varias veces', '🔁']] },
-  { k: 'complica', t: '¿Qué se te complica de mate?', s: 'Sin pena: así sabemos dónde ir más lento.', multi: true, ops: [['Fracciones', '🍰'], ['Porcentajes', '💯'], ['Ecuaciones', '⚖️'], ['Geometría', '📐'], ['Operaciones básicas', '➗'], ['Problemas con palabras', '📝'], ['Gráficas', '📈'], ['Probabilidad', '🎲'], ['Nada, todo fácil', '😎']] },
-  { k: 'grado', t: '¿En qué grado vas?', s: 'Para ajustar la dificultad.', ops: [['Primaria (4to a 6to)', '🎒'], ['1ro a 3ro básico', '📘'], ['4to a 6to bachillerato', '📗'], ['Universidad', '🎓'], ['Ya no estudio', '🧠']] },
-  { k: 'estilo', t: '¿Con qué estilo de animación aprendés mejor?', s: 'Lo podés cambiar en cualquier video, al instante.', estilo: true },
-  { k: 'voz', t: '¿Qué voz querés en tus videos?', s: 'Voces neurales con acento de Guatemala.', ops: [['Andrés', '🧑🏽'], ['Marta', '👩🏽']] },
-];
+const GUSTOS = ['⚽ Fútbol', '🎮 Videojuegos', '🎧 Música', '🏎️ Autos', '💰 Dinero', '👟 Moda', '📱 Redes', '🍥 Anime', '🚀 Espacio', '🍕 Comida', '🏀 Básquet', '🎬 Series'];
+const IDOLOS = ['Messi', 'Cristiano Ronaldo', 'Bad Bunny', 'Peso Pluma', 'Karol G', 'Taylor Swift', 'MrBeast', 'Ibai', 'LeBron James', 'Shakira'];
+const METAS = ['🤑 Ser millonario', '🏪 Tener mi negocio', '⚽ Ser futbolista', '📹 Ser creador', '🎓 Ir a la U', '✈️ Viajar', '🛠️ Ser ingeniero/a', '🩺 Ser médico/a', '🚗 Mi carro', '🕹️ Gamer pro'];
+const APRENDE = ['👀 Viendo ejemplos', '🐢 Paso a paso', '📖 Con historias', '🏆 Con retos', '⚡ Rápido y directo'];
+const COMPLICA = ['Fracciones', 'Porcentajes', 'Ecuaciones', 'Geometría', 'Problemas con palabras', 'Probabilidad'];
+const limpio = (x) => x.replace(/^\S+\s/, (m) => (/\p{Extended_Pictographic}/u.test(m) ? '' : m));
+
+function Grupo({ titulo, ops, valor, onChange, libre }) {
+  const [extra, setExtra] = useState('');
+  const todos = [...ops, ...valor.filter((v) => !ops.some((o) => limpio(o) === v))];
+  const tog = (o) => { const k = limpio(o); onChange(valor.includes(k) ? valor.filter((x) => x !== k) : [...valor, k]); };
+  return (
+    <div className="grupo">
+      <div className="lab">{titulo}</div>
+      <div className="opciones">
+        {todos.map((o) => <button key={o} type="button" className={'opcion' + (valor.includes(limpio(o)) ? ' on' : '')} onClick={() => tog(o)}>{o}</button>)}
+        {libre && <form onSubmit={(e) => { e.preventDefault(); if (extra.trim()) { onChange([...valor, extra.trim()]); setExtra(''); } }}><input className="input" style={{ height: 42, borderRadius: 999, width: 180, padding: '0 16px' }} placeholder="+ Otro" value={extra} onChange={(e) => setExtra(e.target.value)} /></form>}
+      </div>
+    </div>
+  );
+}
 
 export function Onboarding({ editar }) {
   const { usuario, perfil, setPerfil } = useSesion();
   const nav = useNavigate();
   const [i, setI] = useState(0);
-  const [r, setR] = useState(() => perfil || { gustos: [], idolos: [], metas: [], aprende: [], complica: [], ambicion: '', grado: '', voz: 'Andrés', estilo: 'ilustrado' });
-  const [extra, setExtra] = useState('');
+  const [r, setR] = useState(() => ({ gustos: [], idolos: [], metas: [], aprende: [], complica: [], ambicion: '', voz: 'Andres', estilo: 'ilustrado', ...(perfil || {}) }));
+  const set = (k) => (v) => setR({ ...r, [k]: v });
+  const fin = async () => { await api('/perfil', { cuerpo: r }); setPerfil(r); if (editar) nav('/'); };
+  const PASOS = [
+    { t: `Hola, ${usuario.nombre.split(' ')[0]}. ¿Qué te gusta?`, c: <><Grupo titulo="Tus gustos" ops={GUSTOS} valor={r.gustos} onChange={set('gustos')} /><Grupo titulo="A quién seguís" ops={IDOLOS} valor={r.idolos} onChange={set('idolos')} libre /></> },
+    { t: '¿Qué querés lograr?', c: <><Grupo titulo="Tus metas" ops={METAS} valor={r.metas} onChange={set('metas')} /><div className="grupo"><div className="lab">En tus palabras (opcional)</div><input className="input" placeholder="Tener un Lamborghini y comprarle casa a mi mamá" value={r.ambicion} onChange={(e) => set('ambicion')(e.target.value)} /></div></> },
+    { t: '¿Cómo aprendés mejor?', c: <>
+      <Grupo titulo="Aprendo mejor…" ops={APRENDE} valor={r.aprende} onChange={set('aprende')} />
+      <Grupo titulo="Se me complica" ops={COMPLICA} valor={r.complica} onChange={set('complica')} />
+      <div className="grupo"><div className="lab">Estilo de tus videos</div><SelectorEstilo valor={r.estilo} onChange={set('estilo')} /></div>
+      <div className="grupo"><div className="lab">Voz</div><div className="seg"><button type="button" className={r.voz !== 'Marta' ? 'on' : ''} onClick={() => set('voz')('Andres')}>Voz masculina</button><button type="button" className={r.voz === 'Marta' ? 'on' : ''} onClick={() => set('voz')('Marta')}>Voz femenina</button></div></div>
+    </> },
+  ];
   const p = PASOS[i];
-  const val = r[p.k];
-  const toggle = (o) => {
-    if (p.multi) setR({ ...r, [p.k]: val.includes(o) ? val.filter((x) => x !== o) : [...val, o] });
-    else setR({ ...r, [p.k]: o === 'Andrés' ? 'Andrés' : o === 'Marta' ? 'Marta' : o });
-  };
-  const listo = p.texto || p.estilo ? true : p.multi ? val.length > 0 : !!val;
-  const fin = async () => {
-    const datos = { ...r, voz: r.voz === 'Marta' ? 'Marta' : 'Andres' };
-    await api('/perfil', { cuerpo: datos });
-    setPerfil(datos);
-    if (editar) nav('/');
-  };
-  const ops = p.libre ? [...p.ops, ...val.filter((x) => !p.ops.some((o) => o[0] === x)).map((x) => [x, '⭐'])] : p.ops || [];
   return (
     <div className="onb">
-      <div className="logo" style={{ marginBottom: 26 }}><span className="ico">[π]</span><span>math<b>trix</b></span></div>
-      <div className="prog"><div style={{ width: `${((i + 1) / PASOS.length) * 100}%` }} /></div>
-      <div className="dim mono" style={{ fontSize: 13, fontWeight: 700 }}>{i + 1}/{PASOS.length} · Hola, {usuario.nombre.split(' ')[0]} 👋</div>
-      <h1 style={{ fontSize: 'clamp(28px, 4vw, 44px)', marginTop: 10 }}>{p.t}</h1>
-      <div className="muted" style={{ marginTop: 8, fontSize: 16 }}>{p.s}</div>
-      {p.estilo ? <div style={{ marginTop: 22 }}><SelectorEstilo valor={r.estilo || 'ilustrado'} onChange={(k) => setR({ ...r, estilo: k })} /></div> : p.texto ? (
-        <textarea className="area" style={{ marginTop: 22, fontSize: 18, minHeight: 140 }} placeholder={p.ph} value={val} onChange={(e) => setR({ ...r, [p.k]: e.target.value })} />
-      ) : (
-        <div className="opciones">
-          {ops.map(([o, e]) => (
-            <button key={o} className={'opcion' + ((p.multi ? val.includes(o) : val === o || (p.k === 'voz' && val?.startsWith(o.slice(0, 4)))) ? ' on' : '')} onClick={() => toggle(o)}>
-              <img alt="" src={`/emoji/${codEmoji(e)}`} />{o}
-            </button>
-          ))}
+      <div className="logo" style={{ marginBottom: 34 }}><span className="ico">[π]</span><span>mathtrix</span></div>
+      <div className="prog">{PASOS.map((_, k) => <span key={k} className={k <= i ? 'on' : ''} />)}</div>
+      <h1>{p.t}</h1>
+      {p.c}
+      <div className="onb-pie">
+        <div>
+          {i > 0 ? <button className="btn fant" onClick={() => setI(i - 1)}><ArrowLeft size={16} />Atrás</button> : <button className="btn fant" onClick={fin}>Saltar</button>}
+          {i < PASOS.length - 1 ? <button className="btn lima grande" onClick={() => setI(i + 1)}>Seguir<ArrowRight size={17} /></button> : <button className="btn lima grande" onClick={fin}><Check size={17} />Listo</button>}
         </div>
-      )}
-      {p.libre && (
-        <form className="fila" style={{ marginTop: 16, maxWidth: 420 }} onSubmit={(e) => { e.preventDefault(); if (extra.trim()) { setR({ ...r, [p.k]: [...val, extra.trim()] }); setExtra(''); } }}>
-          <input className="input" placeholder="Agregar otro (ej. Kylian Mbappé)" value={extra} onChange={(e) => setExtra(e.target.value)} />
-          <button className="btn">Agregar</button>
-        </form>
-      )}
-      <div className="entre" style={{ marginTop: 40 }}>
-        <button className="btn fant" disabled={i === 0} onClick={() => setI(i - 1)}><ArrowLeft size={17} />Atrás</button>
-        {i < PASOS.length - 1
-          ? <button className="btn lima" disabled={!listo} onClick={() => setI(i + 1)}>Siguiente<ArrowRight size={17} /></button>
-          : <button className="btn lima" disabled={!listo} onClick={fin}><Sparkles size={17} />Crear mi perfil</button>}
       </div>
     </div>
   );

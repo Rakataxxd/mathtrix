@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { Upload, ScanLine, Save, Sparkles, BarChart3, FileText, Smartphone, RectangleHorizontal, Lightbulb, AlertTriangle, Users, Clock, Target, PauseCircle, Rewind, BadgeCheck, Play } from 'lucide-react';
 import { api, useSesion, hace } from '../api.js';
-import { Avatar, VideoCard } from '../components/ui.jsx';
-import { Generador } from '../components/Generador.jsx';
+import { Avatar, VideoCard, Poster } from '../components/ui.jsx';
+import { Generador, useTrabajo, Progreso } from '../components/Generador.jsx';
 import { SelectorEstilo } from '../components/SelectorEstilo.jsx';
 
 export function Leccion() {
@@ -11,48 +11,56 @@ export function Leccion() {
   return usuario.rol === 'profesor' ? <LeccionProfe /> : <LeccionAlumno />;
 }
 
-// ---------------- ALUMNO ----------------
+// ---------------- ALUMNO: abrir la clase = generar el video (sin clics) ----------------
 function LeccionAlumno() {
   const { id } = useParams();
-  const { perfil } = useSesion();
-  const [estilo, setEstilo] = useState(perfil?.estilo || 'ilustrado');
+  const nav = useNavigate();
   const [l, setL] = useState(null);
-  const [mios, setMios] = useState([]);
+  const [mios, setMios] = useState(null);
   const [trabajo, setTrabajo] = useState(null);
+  const [t0, setT0] = useState(Date.now());
+  const [modal, setModal] = useState(null);
   const [err, setErr] = useState(null);
   useEffect(() => {
-    api('/lecciones/' + id).then((x) => {
+    setTrabajo(null); setMios(null);
+    api('/lecciones/' + id).then(async (x) => {
       setL(x);
-      api('/cursos/' + x.curso_id).then((c) => setMios(c.lecciones.find((y) => String(y.id) === id)?.mis_videos || []));
+      const c = await api('/cursos/' + x.curso_id);
+      const m = c.lecciones.find((y) => String(y.id) === id)?.mis_videos || [];
+      setMios(m);
+      if (!m.length) { const r = await api(`/lecciones/${id}/pregenerar`, { cuerpo: { formato: 'vertical' } }); setT0(Date.now()); setTrabajo(r.trabajo); }
     }).catch((e) => setErr(e.message));
-    // truco de velocidad: el guion arranca mientras el alumno lee la pantalla
-    api(`/lecciones/${id}/pregenerar`, { cuerpo: { formato: 'vertical' } }).catch(() => {});
   }, [id]);
-  const generar = async (formato) => { try { const d = await api(`/lecciones/${id}/generar`, { cuerpo: { formato, estilo } }); setTrabajo(d.trabajo); } catch (x) { setErr(x.message); } };
+  const st = useTrabajo(trabajo);
+  useEffect(() => { if (st.listo) setTimeout(() => nav('/ver/' + st.listo.video_id + '?nuevo=1'), 600); }, [st.listo]);
+  const otro = async (formato) => { try { const d = await api(`/lecciones/${id}/generar`, { cuerpo: { formato } }); setModal(d.trabajo); } catch (x) { setErr(x.message); } };
   if (err) return <div className="vacio">{err}</div>;
   if (!l) return <div className="vacio">Cargando…</div>;
+  const ultimo = mios?.[0];
   return (
-    <div style={{ maxWidth: 1100 }}>
-      <div className="dim" style={{ fontSize: 13 }}><Link to="/clases">Clases</Link> / <Link to={'/curso/' + l.curso_id}>{l.curso_titulo}</Link> / {l.titulo}</div>
-      <div className="hero" style={{ marginTop: 14 }}>
-        <span className="badge rosa">Clase · {l.tema}</span>
-        <h1 style={{ marginTop: 12 }}>{l.titulo}</h1>
-        {l.analisis?.resumen && <p className="muted" style={{ maxWidth: 700, fontSize: 16, lineHeight: 1.55 }}>{l.analisis.resumen}</p>}
-        {l.analisis?.conceptos?.length > 0 && <div className="chips" style={{ marginTop: 6 }}>{l.analisis.conceptos.slice(0, 6).map((c) => <span key={c} className="chip">{c}</span>)}</div>}
-        <div style={{ marginTop: 22 }}><div className="dim" style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: '.08em', marginBottom: 8 }}>ESTILO DE ANIMACIÓN</div><SelectorEstilo valor={estilo} onChange={setEstilo} /></div>
-        <div className="fila" style={{ marginTop: 22, flexWrap: 'wrap' }}>
-          <button className="btn lima" style={{ height: 52, fontSize: 16 }} onClick={() => generar('vertical')}><Smartphone size={19} />Generar mi Short</button>
-          <button className="btn" style={{ height: 52, fontSize: 16 }} onClick={() => generar('horizontal')}><RectangleHorizontal size={19} />Versión YouTube (más larga)</button>
-        </div>
-        <div className="dim" style={{ fontSize: 13, marginTop: 12 }}>Cada video es único: se arma con tus gustos, tus metas y cómo aprendés mejor.</div>
+    <div style={{ maxWidth: 900 }}>
+      <div className="dim" style={{ fontSize: 13 }}><Link to={'/curso/' + l.curso_id}>{l.curso_titulo}</Link></div>
+      <h1 style={{ marginTop: 6, fontSize: 32, letterSpacing: '-.04em' }}>{l.titulo}</h1>
+      {l.analisis?.resumen && <p className="muted" style={{ fontSize: 15.5, lineHeight: 1.55, maxWidth: 680 }}>{l.analisis.resumen}</p>}
+      <div className="card" style={{ marginTop: 20, padding: 24 }}>
+        {trabajo && <><Progreso st={st} t0={t0} /><div className="dim" style={{ fontSize: 13, marginTop: 14 }}>Se está creando con tus gustos. Se abre solo cuando esté listo.</div></>}
+        {!trabajo && ultimo && (
+          <div className="listo-caja">
+            <Link to={'/ver/' + ultimo.id}><Poster v={{ ...ultimo, autor: 'Vos' }} vert={ultimo.formato === 'vertical'} /></Link>
+            <div>
+              <div className="dim" style={{ fontSize: 13, fontWeight: 600 }}>Tu video</div>
+              <h2 style={{ marginTop: 6, fontSize: 22, lineHeight: 1.25 }}>{ultimo.titulo}</h2>
+              <div className="fila" style={{ marginTop: 18, flexWrap: 'wrap', gap: 8 }}>
+                <Link to={'/ver/' + ultimo.id} className="btn lima grande"><Play size={17} fill="#000" />Ver</Link>
+                <button className="btn" onClick={() => otro('vertical')}><Sparkles size={16} />Otro gancho</button>
+                <button className="btn fant" onClick={() => otro('horizontal')}><RectangleHorizontal size={16} />Versión larga</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {!trabajo && mios && !mios.length && <div className="dim">Preparando…</div>}
       </div>
-      {mios.length > 0 && (
-        <>
-          <div className="seccion"><h2>Tus videos de esta clase</h2></div>
-          <div className="grid">{mios.map((v) => <VideoCard key={v.id} v={{ ...v, autor: 'Vos', vistas: 0 }} vert={v.formato === 'vertical'} />)}</div>
-        </>
-      )}
-      {trabajo && <Generador trabajo={trabajo} onCerrar={() => setTrabajo(null)} />}
+      {modal && <Generador trabajo={modal} onCerrar={() => setModal(null)} />}
     </div>
   );
 }

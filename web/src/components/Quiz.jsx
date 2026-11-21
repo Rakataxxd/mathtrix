@@ -61,24 +61,24 @@ export function Quiz({ video, onHecho }) {
   );
 }
 
-export function Comentarios({ videoId }) {
+export function Comentarios({ videoId, sinTitulo }) {
   const [lista, setLista] = useState([]);
   const [txt, setTxt] = useState('');
   const cargar = () => api(`/videos/${videoId}/comentarios`).then(setLista).catch(() => {});
   useEffect(() => { cargar(); }, [videoId]);
   const enviar = async (e) => { e.preventDefault(); if (!txt.trim()) return; await api(`/videos/${videoId}/comentarios`, { cuerpo: { texto: txt } }); setTxt(''); cargar(); };
   return (
-    <div style={{ marginTop: 26 }}>
-      <h2 style={{ fontSize: 18 }}>{lista.length} comentarios</h2>
-      <form onSubmit={enviar} className="fila" style={{ marginTop: 14 }}>
-        <input className="input" placeholder="¿Qué no entendiste? ¿Qué gancho querés ver?" value={txt} onChange={(e) => setTxt(e.target.value)} />
-        <button className="btn lima" aria-label="Comentar"><Send size={16} /></button>
+    <div style={{ marginTop: sinTitulo ? 14 : 26 }}>
+      {!sinTitulo && <h2 style={{ fontSize: 17 }}>{lista.length} comentarios</h2>}
+      <form onSubmit={enviar} className="fila" style={{ marginTop: 12 }}>
+        <input className="input" style={{ borderRadius: 999 }} placeholder="Agregá un comentario…" value={txt} onChange={(e) => setTxt(e.target.value)} />
+        {txt.trim() && <button className="btn lima" aria-label="Comentar"><Send size={16} /></button>}
       </form>
-      <div style={{ marginTop: 18 }} className="pila">
+      <div style={{ marginTop: 18 }}>
         {lista.map((c) => (
-          <div key={c.id} className="fila" style={{ alignItems: 'flex-start' }}>
-            <Avatar nombre={c.nombre} color={c.color} size={34} />
-            <div><div style={{ fontSize: 13 }}><b>{c.nombre}</b> {c.rol === 'profesor' && <span className="badge oro" style={{ padding: '1px 7px' }}>Profe</span>} <span className="dim">{hace(c.creado)}</span></div><div style={{ fontSize: 14.5, marginTop: 3, lineHeight: 1.45 }}>{c.texto}</div></div>
+          <div key={c.id} className="coment">
+            <Avatar nombre={c.nombre} color={c.color} size={32} />
+            <div><div style={{ fontSize: 13 }}><b style={{ fontWeight: 600 }}>{c.nombre}</b>{c.rol === 'profesor' && <span className="badge oro" style={{ marginLeft: 6, padding: '1px 7px' }}>Profe</span>} <span className="dim">{hace(c.creado)}</span></div><div style={{ fontSize: 14.5, marginTop: 3, lineHeight: 1.45 }}>{c.texto}</div></div>
           </div>
         ))}
       </div>

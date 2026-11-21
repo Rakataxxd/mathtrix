@@ -15,7 +15,7 @@ const v = await p.evaluate(async ([id, t]) => (await fetch('/api/videos/' + id, 
 const pr = v.timeline.escenas.find((e) => e.tipo === 'pregunta');
 await p.goto(BASE + '/ver/' + VID);
 await p.waitForTimeout(2500);
-await p.locator('.chips .chip', { hasText: ESTILO }).first().click();
+await p.click('.pop .btn'); await p.locator('.pop-caja button', { hasText: ESTILO }).first().click();
 // 1) pregunta: el video se pausa solo
 await p.evaluate((f) => { window.__mtxPlayer.seekTo(f); window.__mtxPlayer.play(); }, pr.inicio + pr.q - 40);
 await p.waitForSelector('.mtx-pregunta button', { timeout: 8000 });

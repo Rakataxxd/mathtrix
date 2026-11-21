@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './estilos.css';
 import { api, setToken, getToken, Sesion } from './api.js';
 import { Layout } from './components/ui.jsx';
-import { Entrar } from './pages/Entrar.jsx';
+import { Landing } from './pages/Landing.jsx';
 import { Onboarding } from './pages/Onboarding.jsx';
 import { Inicio } from './pages/Inicio.jsx';
 import { Shorts } from './pages/Shorts.jsx';
@@ -26,7 +26,7 @@ function App() {
     salir: () => { setToken(null); setSes({ cargando: false, usuario: null, perfil: null }); },
   };
   if (ses.cargando) return null;
-  if (!ses.usuario) return <Sesion.Provider value={valor}><Entrar /></Sesion.Provider>;
+  if (!ses.usuario) return <Sesion.Provider value={valor}><Landing /></Sesion.Provider>;
   if (ses.usuario.rol === 'alumno' && !ses.perfil) return <Sesion.Provider value={valor}><Onboarding /></Sesion.Provider>;
   return (
     <Sesion.Provider value={valor}>

@@ -16,7 +16,7 @@ function enviar(eventos) {
   fetch('/api/eventos', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', authorization: 'Bearer ' + getToken() }, body: JSON.stringify({ eventos }) }).catch(() => {});
 }
 
-export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, controles = true, estilo, onFin, estiloCaja, siguiente, retoAbierto, onReto }, refExt) {
+export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, controles = true, estilo, onFin, estiloCaja, siguiente, retoAbierto, onReto, silenciado, onProgreso, sinPantallaCompleta }, refExt) {
   const ref = useRef(null);
   const caja = useRef(null);
   const tl = video.timeline;
@@ -27,6 +27,7 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
   const [reto, setReto] = useState(false);
   const elec = useRef({});
   const api = useRef({});
+  const progRef = useRef(onProgreso); progRef.current = onProgreso;
   const sesion = useMemo(() => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())), [video.id]);
   useImperativeHandle(refExt, () => Object.assign(ref.current || {}, { abrirReto: () => { try { ref.current?.pause(); } catch {} setReto(true); } }), [video.id]);
   useEffect(() => { if (retoAbierto) { try { ref.current?.pause(); } catch {} setReto(true); } }, [retoAbierto]);
@@ -69,6 +70,7 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
     const onFrame = (ev) => {
       const fr = ev.detail.frame;
       ultimo = fr;
+      progRef.current?.(fr / tl.duracion);
       if (!jugando) return;
       for (const e of preguntas) {
         const corte = e.inicio + e.q;
@@ -114,6 +116,7 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
           compositionHeight={tl.alto}
           controls={controles && !pregunta && !reto}
           autoPlay={autoPlay}
+          initiallyMuted={!!silenciado}
           clickToPlay={!pregunta && !reto}
           allowFullscreen={false}
           doubleClickToFullscreen={false}
@@ -131,7 +134,7 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
           </div>
         )}
         {reto && <RetoFinal video={video} clave={clave} P={P} siguiente={siguiente} onCerrar={() => setReto(false)} onRepetir={() => { setReto(false); try { ref.current.seekTo(0); ref.current.play(); } catch {} }} />}
-        {!reto && <button className="mtx-fs" onClick={pantallaCompleta} aria-label="Pantalla completa"><Maximize2 size={16} /></button>}
+        {!reto && !sinPantallaCompleta && <button className="mtx-fs" onClick={pantallaCompleta} aria-label="Pantalla completa"><Maximize2 size={16} /></button>}
       </div>
     </div>
   );

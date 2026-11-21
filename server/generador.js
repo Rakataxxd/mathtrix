@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { claude, ollama, extraerJSON, tituloParcial } from './ia.js';
 import { motor } from './motor.js';
 import { plantilla } from './plantillas.js';
+import { sintetizar, estadoVoz } from './voz.js';
 import { SISTEMA_GUION, promptGuion, TIPOS, PALETAS } from './prompts.js';
 import { DATA, uno, todos, correr, json } from './db.js';
 
@@ -139,31 +140,22 @@ function armarQuiz(g, valores, seed) {
 }
 
 async function ponerVoz(g, voz, formato) {
-  const rate = formato === 'vertical' ? '+14%' : '+8%';
-  const frases = g.escenas.map((e) => {
-    const texto = paraVoz(e.narracion);
-    const key = createHash('sha1').update(voz + rate + texto).digest('hex').slice(0, 20);
-    e._voz = key;
-    return { key, texto, voz, rate };
-  });
-  const clave = (texto) => createHash('sha1').update(voz + rate + texto).digest('hex').slice(0, 20);
-  for (const e of g.escenas) if (e.tipo === 'pregunta') for (const k of ['si_bien', 'si_mal']) {
-    const texto = paraVoz(e[k]); e['_' + k] = clave(texto); frases.push({ key: e['_' + k], texto, voz, rate });
-  }
-  const r = await motor('tts', { dir: join(DATA, 'media', 'tts'), frases }, 90000);
-  let fallos = 0;
+  const items = [];
   for (const e of g.escenas) {
-    const v = r[e._voz];
-    if (v && !v.error) { e.audio = '/media/tts/' + v.audio; e.palabras = v.palabras; e.voz_s = v.duracion; }
-    else { fallos++; e.voz_s = Math.max(1.5, paraVoz(e.narracion).split(' ').length / 2.7); e.palabras = estimarPalabras(e.narracion, e.voz_s); }
-    delete e._voz;
-    if (e.tipo === 'pregunta') for (const k of ['si_bien', 'si_mal']) {
-      const v2 = r[e['_' + k]], suf = k === 'si_bien' ? 'bien' : 'mal';
-      if (v2 && !v2.error) { e['audio_' + suf] = '/media/tts/' + v2.audio; e['palabras_' + suf] = v2.palabras; e['voz_' + suf] = v2.duracion; }
-      else { e['voz_' + suf] = Math.max(1.5, paraVoz(e[k]).split(' ').length / 2.7); e['palabras_' + suf] = estimarPalabras(e[k], e['voz_' + suf]); }
-      delete e['_' + k];
-    }
+    items.push({ e, campo: '', texto: paraVoz(e.narracion) });
+    if (e.tipo === 'pregunta') for (const k of ['si_bien', 'si_mal']) items.push({ e, campo: k, texto: paraVoz(e[k]) });
   }
+  const r = await sintetizar(items.map((x) => ({ texto: x.texto })), { voz, vertical: formato === 'vertical' });
+  let fallos = 0;
+  items.forEach((x, n) => {
+    const v = r[n], e = x.e;
+    const suf = x.campo === 'si_bien' ? '_bien' : x.campo === 'si_mal' ? '_mal' : '';
+    const ok = v && !v.error;
+    if (!ok && !suf) fallos++;
+    const dur = ok ? v.duracion : Math.max(1.5, x.texto.split(' ').length / 2.7);
+    if (suf) { if (ok) e['audio' + suf] = '/media/tts/' + v.audio; e['palabras' + suf] = ok ? v.palabras : estimarPalabras(x.texto, dur); e['voz' + suf] = dur; }
+    else { if (ok) e.audio = '/media/tts/' + v.audio; e.palabras = ok ? v.palabras : estimarPalabras(x.texto, dur); e.voz_s = dur; }
+  });
   return fallos;
 }
 
@@ -213,7 +205,7 @@ function escenasCompletas(txt) {
   }
   return { cabeza: txt.slice(0, k).replace(/,\s*$/, '') + '}', escenas: out };
 }
-function vozAdelantada(voz, rate) {
+function vozAdelantada(voz, formato) {
   let valores = null, pedido = false, hechas = 0;
   return (txt) => {
     const { cabeza, escenas } = escenasCompletas(txt);
@@ -236,14 +228,14 @@ function vozAdelantada(voz, rate) {
         const nar = String(e.narracion || e.texto || e.nota || '').slice(0, 320).replace(/\{\s*(\w+)\s*\}/g, (_, id) => valores[id]?.texto ?? '?');
         if (nar.includes('?') && /\{/.test(js) && !/\?/.test(e.narracion || '')) continue;
         const texto = paraVoz(nar);
-        frases.push({ key: createHash('sha1').update(voz + rate + texto).digest('hex').slice(0, 20), texto, voz, rate });
+        frases.push({ texto });
         if (e.tipo === 'pregunta') for (const k of ['si_bien', 'si_mal']) if (e[k]) {
           const t2 = paraVoz(String(e[k]).slice(0, 300).replace(/\{\s*(\w+)\s*\}/g, (_, id) => valores[id]?.texto ?? '?'));
-          frases.push({ key: createHash('sha1').update(voz + rate + t2).digest('hex').slice(0, 20), texto: t2, voz, rate });
+          frases.push({ texto: t2 });
         }
       } catch {}
     }
-    if (frases.length) motor('tts', { dir: join(DATA, 'media', 'tts'), frases }, 90000).catch(() => {});
+    if (frases.length) sintetizar(frases, { voz, vertical: formato === 'vertical' }).catch(() => {});
   };
 }
 
@@ -251,7 +243,7 @@ function vozAdelantada(voz, rate) {
 async function escribirGuion(tr, ctx) {
   const prompt = promptGuion(ctx);
   let ultimo = 0, chars = 0, titulo = null;
-  const adelanto = vozAdelantada(ctx.voz, ctx.formato === 'vertical' ? '+14%' : '+8%');
+  const adelanto = vozAdelantada(ctx.voz, ctx.formato);
   const onTexto = (txt) => {
     chars = txt.length;
     try { adelanto(txt); } catch {}
@@ -302,10 +294,10 @@ export function generarVideo({ usuario, leccion, formato = 'vertical', publico =
       const stats = json(pf?.stats, {});
       emitir(tr, { etapa: 'perfil', msg: `Leyendo el perfil de ${usuario.nombre.split(' ')[0]}: ${[...(perfil.gustos || []).slice(0, 3), ...(perfil.idolos || []).slice(0, 2)].join(', ') || 'sin perfil'}` });
       const evitar = todos('SELECT titulo FROM videos WHERE autor_id=? ORDER BY id DESC LIMIT 8', usuario.id).map((v) => v.titulo);
-      const voz = perfil.voz === 'Marta' ? 'es-GT-MartaNeural' : 'es-GT-AndresNeural';
+      const voz = perfil.voz === 'Marta' ? 'Marta' : 'Andres';
       estilo = estilo || perfil.estilo || 'ilustrado';
       const { g, r, motor: motorUsado } = await escribirGuion(tr, { formato, leccion, alumno: usuario, perfil, stats, evitar, voz, estilo });
-      emitir(tr, { etapa: 'voz', msg: `Voz de ${g.escenas.length} escenas (se fue grabando mientras Haiku escribía)…` });
+      emitir(tr, { etapa: 'voz', msg: `Voz ${estadoVoz.proveedor() === 'elevenlabs' ? 'ElevenLabs' : 'neural'} de ${g.escenas.length} escenas (grabada mientras Haiku escribía)…` });
       const fallos = await ponerVoz(g, voz, formato);
       if (fallos) emitir(tr, { etapa: 'aviso', msg: `${fallos} escenas sin voz (sin internet): van con subtítulos` });
       const tl = timeline(g, formato, r.valores, tr.estilo || estilo);

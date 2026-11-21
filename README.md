@@ -23,8 +23,9 @@ Desarrollo con recarga: `npm run server` + `npm run dev` (Vite en 5173 con proxy
    Respaldo: qwen3 en la RTX 5050 (Ollama por Tailscale) y, si todo falla, plantillas sin IA.
 2. **Cuentas**: `motor/worker.py` (proceso ya cargado) calcula cada paso con sympy en fracciones exactas
    y verifica el resultado con una expresión independiente. Si no cierra, el guion se rechaza.
-3. **Voz**: edge-tts `es-GT-AndresNeural` / `es-GT-MartaNeural` con marcas por palabra (subtítulos karaoke).
-   Cada escena se graba apenas Haiku la termina de escribir; caché por frase.
+3. **Voz**: ElevenLabs Flash v2.5 (voces latinas «Dan» y «Sandra») con marcas por palabra (subtítulos karaoke).
+   Key en `.env` como `ELEVENLABS_API_KEY` (no se sube a git). Sin key o sin saldo pasa solo a edge-tts es-GT.
+   Cada escena se graba apenas Haiku la termina de escribir; caché por frase y sin pedir dos veces la misma.
 4. **Video**: no se renderiza. Se guarda un timeline JSON y `@remotion/player` lo dibuja en el navegador
    (`web/src/video`): 10 tipos de escena, fórmulas que se transforman símbolo a símbolo, cámara viva,
    fondo en 3 capas, mascota que habla, grano y viñeta.
@@ -39,7 +40,7 @@ funciona por alumno, temas débiles. El perfil se retroalimenta al siguiente vid
 ## Variables
 
 `PORT` (8110), `HOST` (127.0.0.1; para link público poner 0.0.0.0 o túnel), `MATHTRIX_MODELO`,
-`MATHTRIX_EFFORT`, `MATHTRIX_OLLAMA` (URLs separadas por coma), `MATHTRIX_SIN_IA=1` (solo plantillas).
+`MATHTRIX_EFFORT`, `ELEVENLABS_API_KEY`, `ELEVEN_MODELO`, `ELEVEN_VOZ_H`, `ELEVEN_VOZ_M`, `MATHTRIX_OLLAMA` (URLs separadas por coma), `MATHTRIX_SIN_IA=1` (solo plantillas).
 
 ## Pruebas
 
