@@ -276,8 +276,12 @@ app.post('/api/lecciones/:id/pregenerar', req('alumno'), (r, s) => {
 app.post('/api/generar-libre', req(), (r, s) => {
   const tema = String(r.body?.tema || '').slice(0, 120);
   if (!tema) return s.status(400).json({ error: 'Escribí un tema' });
-  s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { titulo: tema, tema, objetivo: r.body?.detalle || '' }, formato: r.body?.formato === 'vertical' ? 'vertical' : 'horizontal', estilo: estiloOk(r.body?.estilo),
-    ...(r.body?.base ? { nota: NOTA_BASE, tipo: 'base' } : {}) }) });
+  const n = Math.min(5, Math.max(1, parseInt(r.body?.cantidad) || 1));
+  const formato = r.body?.formato === 'vertical' ? 'vertical' : 'horizontal';
+  // varios a la vez: cada uno en su propio Haiku en paralelo, con un gancho distinto
+  const trabajos_ = Array.from({ length: n }, (_, k) => generarVideo({ usuario: r.u, leccion: { titulo: tema, tema, objetivo: r.body?.detalle || '' }, formato, estilo: estiloOk(r.body?.estilo),
+    ...(r.body?.base ? { nota: NOTA_BASE, tipo: 'base' } : n > 1 ? { nota: `VARIANTE ${k + 1} DE ${n}: se generan ${n} videos a la vez del mismo tema. Este usa un gancho y un contexto DISTINTOS a los otros: basalo en el gusto o ídolo número ${k + 1} de su perfil (si no hay, inventá otro mundo) y cambiá los números.` } : {}) }));
+  s.json({ trabajo: trabajos_[0], trabajos: trabajos_ });
 });
 // respaldo sin streaming (los tuneles a veces retienen el SSE): eventos desde el indice ?desde=n
 app.get('/api/trabajos/:id/eventos', (r, s) => {

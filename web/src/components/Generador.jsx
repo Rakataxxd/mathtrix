@@ -1,7 +1,7 @@
 // Progreso en vivo de la generacion (Server-Sent Events). Minimalista: titulo, una barra y el paso actual.
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { X, Sparkles } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { X, Sparkles, Play, Check } from 'lucide-react';
 
 const PASOS = { foto: [5, 'Leyendo tu ejercicio paso por paso'], analisis: [10, 'Armando tu video de corrección'], perfil: [6, 'Leyendo tus gustos'], guion: [12, 'Escribiendo tu gancho'], calculo: [70, 'Calculando cada paso exacto'], verificacion: [78, 'Verificando el resultado'], voz: [88, 'Grabando la voz'], listo: [100, '¡Listo!'] };
 
@@ -88,6 +88,38 @@ export function Generador({ trabajo, onCerrar }) {
           {!st.listo && <button className="btn chico ico fant" onClick={onCerrar} aria-label="Cerrar"><X size={17} /></button>}
         </div>
         <Progreso st={st} t0={t0} />
+      </div>
+    </div>
+  );
+}
+
+/** Varios videos a la vez: una fila por video, cada uno con su propio Haiku en paralelo. */
+function FilaLote({ trabajo, i }) {
+  const [t0] = useState(Date.now());
+  const [ahora, setAhora] = useState(Date.now());
+  const st = useTrabajo(trabajo);
+  useEffect(() => { if (st.listo || st.error) return; const iv = setInterval(() => setAhora(Date.now()), 500); return () => clearInterval(iv); }, [st.listo, st.error]);
+  return (
+    <div className="lote-fila">
+      <div className="entre" style={{ alignItems: 'flex-start' }}>
+        <b style={{ fontSize: 14.5, lineHeight: 1.3 }}>{st.titulo || `Video ${i + 1}: inventando el gancho…`}</b>
+        {st.listo ? <Link to={'/ver/' + st.listo.video_id} className="btn chico lima"><Play size={14} fill="currentColor" />Ver</Link> : <span className="reloj">{Math.round((ahora - t0) / 1000)}s</span>}
+      </div>
+      <div className="gen-barra" style={{ marginTop: 10 }}><div style={{ width: `${st.p}%` }} /></div>
+      <div className="gen-paso" style={{ marginTop: 6 }}>{st.error ? <span className="error">{st.error}</span> : st.listo ? <><Check size={13} style={{ verticalAlign: -2 }} /> Listo en {(st.listo.ms / 1000).toFixed(0)} s</> : st.paso}</div>
+    </div>
+  );
+}
+export function GeneradorLote({ trabajos, onCerrar }) {
+  return (
+    <div className="modal">
+      <div className="caja">
+        <div className="entre" style={{ marginBottom: 14 }}>
+          <span className="badge lima">{trabajos.length} videos a la vez</span>
+          <button className="btn chico ico fant" onClick={onCerrar} aria-label="Cerrar"><X size={17} /></button>
+        </div>
+        <div className="pila">{trabajos.map((t, i) => <FilaLote key={t} trabajo={t} i={i} />)}</div>
+        <div className="dim" style={{ fontSize: 12.5, marginTop: 14 }}>Cada uno se escribe con su propio Haiku en paralelo. Podés cerrar: quedan en tu Inicio.</div>
       </div>
     </div>
   );

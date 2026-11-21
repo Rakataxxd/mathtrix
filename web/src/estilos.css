@@ -454,3 +454,6 @@ label.lab, .lab { display: block; font-size: 12.5px; font-weight: 600; color: va
 @media (max-width: 600px) { .revisar-cta { flex-wrap: wrap; } .revisar-cta .btn { width: 100%; } }
 
 .estilo-auto { display: grid; place-items: center; align-content: center; gap: 6px; background: conic-gradient(from 200deg, #FFC23D, #E0457B, #2EC4F1, #c8ff3d, #FFC23D) !important; color: #0d0d12; font-weight: 800; font-size: 13px; }
+
+.lote-fila { padding: 12px 14px; border-radius: 16px; background: var(--v1); border: 1px solid var(--linea); }
+.lote-fila + .lote-fila { margin-top: 8px; }

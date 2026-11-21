@@ -4,7 +4,7 @@ import { Home, Zap, School, Search, LogOut, Plus, UserRound, GraduationCap, Spar
 import { useSesion, api, hace, dur, vistas, inicial, getTema, setTema } from '../api.js';
 import { PALETAS, codEmoji } from '../video/fx.jsx';
 import { ESTILOS, FiltrosEstilo, estiloDe, filtroEmoji } from '../video/estilos.jsx';
-import { Generador } from './Generador.jsx';
+import { Generador, GeneradorLote } from './Generador.jsx';
 import { RevisarFoto } from './RevisarFoto.jsx';
 
 export function Logo() {
@@ -46,14 +46,17 @@ export function BotonTema({ boton }) {
 export function CrearVideo({ onCerrar }) {
   const { perfil } = useSesion();
   const [modo, setModo] = useState('tema');
+  const [cantidad, setCantidad] = useState(1);
+  const [lote, setLote] = useState(null);
   const [tema, setTema] = useState('');
   const [formato, setFormato] = useState('horizontal');
   const [trabajo, setTrabajo] = useState(null);
   const [err, setErr] = useState(null);
   const enviar = async (e) => {
     e.preventDefault(); if (!tema.trim()) return;
-    try { const d = await api('/generar-libre', { cuerpo: { tema, formato, estilo: perfil?.estilo } }); setTrabajo(d.trabajo); } catch (x) { setErr(x.message); }
+    try { const d = await api('/generar-libre', { cuerpo: { tema, formato, estilo: perfil?.estilo, cantidad } }); if (d.trabajos?.length > 1) setLote(d.trabajos); else setTrabajo(d.trabajo); } catch (x) { setErr(x.message); }
   };
+  if (lote) return <GeneradorLote trabajos={lote} onCerrar={onCerrar} />;
   if (trabajo) return <Generador trabajo={trabajo} onCerrar={onCerrar} />;
   return (
     <div className="modal" onClick={(e) => e.target === e.currentTarget && onCerrar()}>
@@ -70,7 +73,12 @@ export function CrearVideo({ onCerrar }) {
             <button type="button" className={formato === 'vertical' ? 'on' : ''} onClick={() => setFormato('vertical')}><Smartphone size={15} />Short</button>
             <button type="button" className={formato === 'horizontal' ? 'on' : ''} onClick={() => setFormato('horizontal')}><RectangleHorizontal size={15} />Video</button>
           </div>
-          <button className="btn lima" disabled={!tema.trim()}><Sparkles size={16} />Crear</button>
+          <button className="btn lima" disabled={!tema.trim()}><Sparkles size={16} />{cantidad > 1 ? `Crear ${cantidad}` : 'Crear'}</button>
+        </div>
+        <div className="fila" style={{ marginTop: 12, gap: 10 }}>
+          <span className="dim" style={{ fontSize: 13 }}>¿Cuántos a la vez?</span>
+          <div className="seg">{[1, 3, 5].map((n) => <button key={n} type="button" className={cantidad === n ? 'on' : ''} onClick={() => setCantidad(n)}>{n}</button>)}</div>
+          {cantidad > 1 && <span className="dim" style={{ fontSize: 12.5 }}>cada uno con otro gancho</span>}
         </div></>}
         {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
       </form>

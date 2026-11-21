@@ -41,15 +41,21 @@ function palabrasDe(al) {
 async function eleven(texto, voz, velocidad, key) {
   await turno();
   try {
-    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOCES_ELEVEN[voz] || VOCES_ELEVEN.Andres}/with-timestamps?output_format=mp3_44100_128`, {
+    let r;
+    // varios videos a la vez: si ElevenLabs dice "demasiadas solicitudes" (429) se reintenta, NO se cambia de voz
+    for (let intento = 0; ; intento++) {
+    r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOCES_ELEVEN[voz] || VOCES_ELEVEN.Andres}/with-timestamps?output_format=mp3_44100_128`, {
       method: 'POST', headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'content-type': 'application/json' },
       body: JSON.stringify({ text: texto, model_id: MODELO, language_code: 'es', voice_settings: { stability: 0.42, similarity_boost: 0.8, style: 0.35, use_speaker_boost: true, speed: velocidad } }),
       signal: AbortSignal.timeout(30000),
     });
+    if (r.status === 429 && intento < 6) { await new Promise((ok) => setTimeout(ok, 700 * (intento + 1) + Math.random() * 400)); continue; }
+    break;
+    }
     if (!r.ok) {
       const det = await r.text();
       // sin saldo o key invalida: se pasa a edge-tts por 15 minutos
-      if (r.status === 401 || r.status === 402 || /quota|credits|limit/i.test(det)) pausaHasta = Date.now() + 15 * 60 * 1000;
+      if (r.status === 401 || r.status === 402 || /quota_exceeded|insufficient|credits/i.test(det)) pausaHasta = Date.now() + 15 * 60 * 1000;
       throw new Error(`elevenlabs ${r.status}: ${det.slice(0, 160)}`);
     }
     const d = await r.json();
