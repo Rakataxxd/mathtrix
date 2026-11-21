@@ -279,6 +279,13 @@ app.post('/api/generar-libre', req(), (r, s) => {
   s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { titulo: tema, tema, objetivo: r.body?.detalle || '' }, formato: r.body?.formato === 'vertical' ? 'vertical' : 'horizontal', estilo: estiloOk(r.body?.estilo),
     ...(r.body?.base ? { nota: NOTA_BASE, tipo: 'base' } : {}) }) });
 });
+// respaldo sin streaming (los tuneles a veces retienen el SSE): eventos desde el indice ?desde=n
+app.get('/api/trabajos/:id/eventos', (r, s) => {
+  const tr = trabajos.get(r.params.id);
+  if (!tr) return s.json({ eventos: [{ etapa: 'error', msg: 'Trabajo no encontrado' }], total: 1 });
+  const desde = Math.max(0, +r.query.desde || 0);
+  s.set('cache-control', 'no-store').json({ eventos: tr.eventos.slice(desde).filter((e) => e.etapa !== 'escribiendo' || e === tr.eventos.at(-1)), total: tr.eventos.length });
+});
 app.get('/api/trabajos/:id', (r, s) => {
   s.set({ 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
   s.flushHeaders();
@@ -336,11 +343,8 @@ app.post('/api/videos/:id/duda', req(), async (r, s) => {
   r.on('close', () => { cerrado = true; });
   const onTexto = (txt) => { if (cerrado) return; const d = txt.slice(enviado); if (d) { s.write(d); enviado = txt.length; } };
   let respuesta = '';
-  try {
-    respuesta = await claude({ sistema: SISTEMA_DUDA, prompt, onTexto, timeoutMs: 60000 });
-  } catch {
-    try { respuesta = await ollama({ sistema: SISTEMA_DUDA, prompt, onTexto, timeoutMs: 60000 }); } catch {}
-  }
+  // siempre Haiku (suscripcion); un reintento si falla
+  for (let k = 0; k < 2 && !respuesta; k++) { try { respuesta = await claude({ sistema: SISTEMA_DUDA, prompt, onTexto, timeoutMs: 60000 }); } catch {} }
   if (!respuesta) respuesta = 'Uy, se me fue la señal. Volvé a ver esta parte y preguntame de nuevo en un momento.';
   if (enviado < respuesta.length) s.write(respuesta.slice(enviado));
   s.end();

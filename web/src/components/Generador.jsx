@@ -10,8 +10,9 @@ export function useTrabajo(trabajo) {
   useEffect(() => {
     if (!trabajo) return;
     const es = new EventSource('/api/trabajos/' + trabajo);
-    es.onmessage = (m) => {
-      const ev = JSON.parse(m.data);
+    let visto = 0, fin = false, iv = null;
+    const procesar = (ev) => {
+      if (fin) return;
       setSt((s) => {
         const n = { ...s };
         if (ev.titulo) n.titulo = ev.titulo;
@@ -23,9 +24,17 @@ export function useTrabajo(trabajo) {
         if (ev.etapa === 'listo') n.listo = ev;
         return n;
       });
-      if (ev.etapa === 'listo' || ev.etapa === 'error') es.close();
+      if (ev.etapa === 'listo' || ev.etapa === 'error') { fin = true; es.close(); clearInterval(iv); }
     };
-    return () => es.close();
+    es.onmessage = (m) => { visto++; procesar(JSON.parse(m.data)); };
+    // respaldo: si el tunel retiene el streaming, se pregunta el estado cada 1.5 s
+    iv = setInterval(async () => {
+      try {
+        const r = await (await fetch(`/api/trabajos/${trabajo}/eventos?desde=${visto}`, { cache: 'no-store' })).json();
+        if (r.total > visto) { visto = r.total; r.eventos.forEach(procesar); }
+      } catch {}
+    }, 1500);
+    return () => { es.close(); clearInterval(iv); };
   }, [trabajo]);
   return st;
 }

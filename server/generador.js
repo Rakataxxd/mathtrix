@@ -280,7 +280,6 @@ async function escribirGuion(tr, ctx) {
   const motores = [
     { nombre: 'Claude Haiku 5.5', id: 'haiku-5.5', f: () => claude({ sistema: SISTEMA_GUION, prompt, onTexto }) },
     { nombre: 'Claude Haiku 5.5 (reintento)', id: 'haiku-5.5', f: () => claude({ sistema: SISTEMA_GUION, prompt: prompt + '\nOJO: el intento anterior falló la validación o la verificación. Revisá que cada {id} exista en variables o calculos.', onTexto }) },
-    { nombre: 'qwen3 en RTX 5050', id: 'qwen3-gpu', f: () => ollama({ sistema: SISTEMA_GUION, prompt, onTexto }) },
   ];
   if (process.env.MATHTRIX_SIN_IA) motores.length = 0;
   for (const m of motores) {
