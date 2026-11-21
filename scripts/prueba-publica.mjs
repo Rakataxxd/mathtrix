@@ -1,0 +1,27 @@
+// Genera un video desde la pagina publica (tunel) como un usuario real y mide cuanto tarda hasta abrirlo.
+import { chromium } from 'playwright-core';
+const BASE = process.env.BASE || 'https://often-awards-allowing-mat.trycloudflare.com';
+const OUT = 'C:/Users/usuario/proyectos/mathtrix/data/capturas/';
+const b = await chromium.launch({ headless: true, executablePath: 'C:/Users/usuario/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe', args: ['--mute-audio', '--enable-gpu', '--use-angle=d3d11', '--ignore-gpu-blocklist'] });
+const p = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+const errores = [];
+p.on('pageerror', (e) => errores.push(e.message));
+await p.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+const r = await p.evaluate(async () => (await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'diego@demo.gt', clave: 'mathtrix' }) })).json());
+await p.evaluate((t) => localStorage.setItem('mtx_token', t), r.token);
+await p.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+await p.click('.top-der button:has-text("Crear")');
+await p.fill('.modal input.input', process.env.TEMA || 'volumen de un cilindro');
+const t0 = Date.now();
+await p.click('.modal button:has-text("Crear")');
+let ultimo = '';
+const iv = setInterval(async () => { try { const t = await p.locator('.gen-paso').first().innerText(); if (t !== ultimo) { ultimo = t; console.log(((Date.now() - t0) / 1000).toFixed(0) + 's', t.trim()); } } catch {} }, 1000);
+await p.waitForURL(/\/ver\/\d+/, { timeout: 240000 });
+clearInterval(iv);
+const s = ((Date.now() - t0) / 1000).toFixed(1);
+await p.waitForTimeout(5000);
+await p.locator('.mtx-marco').first().screenshot({ path: OUT + 'publico-video.png' });
+console.log(`ABIERTO en ${s} s -> ${p.url()}`);
+console.log('titulo:', await p.locator('.ver-tit').innerText().catch(() => '?'));
+console.log(errores.length ? 'ERRORES ' + errores.join(' | ') : 'sin errores');
+await b.close();

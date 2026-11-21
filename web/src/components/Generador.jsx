@@ -79,7 +79,8 @@ export function Generador({ trabajo, onCerrar }) {
   const nav = useNavigate();
   const [t0] = useState(Date.now());
   const st = useTrabajo(trabajo);
-  useEffect(() => { if (st.listo) setTimeout(() => nav('/ver/' + st.listo.video_id + '?nuevo=1'), 700); }, [st.listo]);
+  // al terminar abre el video y cierra el progreso (antes quedaba tapando el video)
+  useEffect(() => { if (st.listo) setTimeout(() => { nav('/ver/' + st.listo.video_id + '?nuevo=1'); onCerrar?.(); }, 700); }, [st.listo]);
   return (
     <div className="modal">
       <div className="caja">
