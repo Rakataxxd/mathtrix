@@ -1,7 +1,7 @@
 // Shorts con diseño de Reels: un video por pantalla, riel de acciones, comentarios en hoja lateral.
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Heart, MessageCircle, Target, Share2, VolumeX, Volume2, ChevronUp, ChevronDown, X, Check } from 'lucide-react';
+import { Heart, MessageCircle, Target, Share2, VolumeX, Volume2, ChevronUp, ChevronDown, X, Check, MessageCircleQuestion } from 'lucide-react';
 import { api } from '../api.js';
 import { Poster, Avatar } from '../components/ui.jsx';
 import { Reproductor } from '../components/Reproductor.jsx';
@@ -29,7 +29,7 @@ function Reel({ v, activo, onComentarios }) {
   return (
     <div className="reel">
       <div className="reel-caja">
-        {activo && full ? <Reproductor ref={ref} video={full} controles={false} autoPlay silenciado={!conSonido} onProgreso={setProg} sinPantallaCompleta estiloCaja={{ height: '100%', width: '100%' }} /> : <Poster v={v} vert />}
+        {activo && full ? <Reproductor ref={ref} video={full} controles={false} autoPlay silenciado={!conSonido} onProgreso={setProg} sinPantallaCompleta sinBotonDuda estiloCaja={{ height: '100%', width: '100%' }} /> : <Poster v={v} vert />}
         {activo && full && <button className="reel-sonido" onClick={sonido}>{mudo ? <><VolumeX size={15} />Activar sonido</> : <Volume2 size={15} />}</button>}
         <div className="reel-info">
           <div className="fila" style={{ gap: 10 }}><Avatar nombre={v.autor} color={v.autor_color} size={30} /><b style={{ fontSize: 14 }}>{v.autor}</b></div>
@@ -40,6 +40,7 @@ function Reel({ v, activo, onComentarios }) {
       <div className="reel-riel">
         <div><button onClick={darLike} className={like === 1 ? 'on' : ''} aria-label="Me gusta"><Heart fill={like === 1 ? 'currentColor' : 'none'} /></button><small>{likes}</small></div>
         <div><button onClick={() => onComentarios(v.id)} aria-label="Comentarios"><MessageCircle /></button><small>Coment.</small></div>
+        <div><button onClick={() => ref.current?.abrirDuda?.()} aria-label="Duda"><MessageCircleQuestion /></button><small>Duda</small></div>
         <div><button onClick={() => ref.current?.abrirReto?.()} aria-label="Reto"><Target /></button><small>Reto</small></div>
         <div><button onClick={compartir} aria-label="Compartir">{copiado ? <Check /> : <Share2 />}</button><small>{copiado ? 'Copiado' : 'Compartir'}</small></div>
       </div>
@@ -73,7 +74,7 @@ export function Shorts() {
   if (vids && !vids.length) return <div className="vacio">Todavía no hay Shorts. Creá uno desde Inicio.</div>;
   return (
     <>
-      <div className="reels" ref={cont}>
+      <div className="reels tema-oscuro" ref={cont}>
         {(vids || []).map((v, i) => <div key={v.id} data-i={i}><Reel v={v} activo={i === activo} onComentarios={setComent} /></div>)}
       </div>
       <div className="reel-nav">

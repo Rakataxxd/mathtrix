@@ -45,7 +45,9 @@ export function recomendar(u, vids) {
     const fresco = Math.exp(-Math.max(0, horas) / 72);
     const explora = hash(v.id + dia + u.id);
     const propio = v.autor_id === u.id ? 0.08 : 0;
-    const score = 0.36 * match + 0.2 * need + 0.18 * calidad + 0.14 * fresco + 0.12 * explora + propio - (vistos.has(v.id) ? 0.25 : 0);
+    // afinidad con la plantilla visual: lo que mas lo engancha sube (completa, like, test)
+    const afin = v.plantilla && st.plantillas?.[v.plantilla] != null ? (st.plantillas[v.plantilla] - 0.5) * 0.16 : 0;
+    const score = 0.36 * match + 0.2 * need + 0.18 * calidad + 0.14 * fresco + 0.12 * explora + propio + afin - (vistos.has(v.id) ? 0.25 : 0);
     const motivo = need ? 'Refuerza un tema que se te complica' : hits.length ? `Porque te gusta ${hits[0]}` : calidad > 0.5 ? 'Tendencia en Mathtrix' : fresco > 0.7 ? 'Nuevo' : 'Para explorar';
     return { ...v, score, motivo };
   }).sort((a, b) => b.score - a.score);
@@ -67,7 +69,21 @@ export function actualizarStats(uid) {
   const trabas = todos(`SELECT escena_tipo, COUNT(*) n FROM eventos WHERE usuario_id=? AND tipo IN ('pausa','rebobinar') AND escena_tipo IS NOT NULL GROUP BY escena_tipo ORDER BY n DESC LIMIT 2`, uid);
   const ses = uno(`SELECT COUNT(DISTINCT CASE WHEN tipo='play' THEN sesion END) p, COUNT(DISTINCT CASE WHEN tipo='fin' THEN sesion END) f FROM eventos WHERE usuario_id=?`, uid);
   const latidos = uno(`SELECT COUNT(*) n FROM eventos WHERE usuario_id=? AND tipo='latido'`, uid).n;
+  // enganche por plantilla visual: termina el video, le da like, le va bien en el test
+  const porPlantilla = todos(`SELECT v.plantilla k, COUNT(DISTINCT e.sesion) s, COUNT(DISTINCT CASE WHEN e.tipo='fin' THEN e.sesion END) f,
+      COUNT(DISTINCT CASE WHEN e.tipo IN ('pausa','rebobinar','duda') THEN e.id END) tr
+    FROM eventos e JOIN videos v ON v.id=e.video_id WHERE e.usuario_id=? AND v.plantilla IS NOT NULL AND e.sesion IS NOT NULL GROUP BY v.plantilla`, uid);
+  const likesP = Object.fromEntries(todos('SELECT v.plantilla k, SUM(l.valor) n FROM likes l JOIN videos v ON v.id=l.video_id WHERE l.usuario_id=? AND v.plantilla IS NOT NULL GROUP BY v.plantilla', uid).map((x) => [x.k, x.n]));
+  const testP = Object.fromEntries(todos('SELECT v.plantilla k, AVG(i.puntaje) p FROM intentos i JOIN videos v ON v.id=i.video_id WHERE i.usuario_id=? AND v.plantilla IS NOT NULL GROUP BY v.plantilla', uid).map((x) => [x.k, x.p]));
+  const plantillas = {};
+  for (const p of porPlantilla) {
+    const comp = (p.f + 1) / (p.s + 2); // suavizado: pocas vistas no deciden solas
+    const like = Math.max(-1, Math.min(1, (likesP[p.k] || 0) / 2));
+    const test = testP[p.k] ?? 0.5;
+    plantillas[p.k] = +Math.max(0, Math.min(1, 0.55 * comp + 0.25 * test + 0.2 * (0.5 + like / 2))).toFixed(2);
+  }
   const stats = {
+    plantillas, mejorPlantilla: Object.entries(plantillas).sort((a, b) => b[1] - a[1])[0]?.[0] || null,
     temas, estilos, mejorEstilo,
     debiles: Object.entries(temas).filter(([, v]) => v < 0.6).map(([k]) => k),
     fuertes: Object.entries(temas).filter(([, v]) => v >= 0.8).map(([k]) => k),
@@ -79,4 +95,22 @@ export function actualizarStats(uid) {
   };
   correr('UPDATE perfiles SET stats=? WHERE usuario_id=?', JSON.stringify(stats), uid);
   return stats;
+}
+
+export const PLANTILLAS = ['ilustrado', 'vector', 'cinetica', 'manim', 'tiza', 'neon', 'riso', 'blueprint', 'cuaderno'];
+/** Elige la plantilla visual del proximo video: la que mas engancha al alumno, sin repetir siempre la misma.
+ *  Muestreo tipo Thompson simplificado: puntaje + ruido; la elegida en onboarding arranca con ventaja. */
+export function elegirPlantilla(uid, perfil, stats) {
+  if (perfil?.estilo && perfil.estilo !== 'auto' && !perfil.variar) return perfil.estilo;
+  const ult = todos('SELECT plantilla FROM videos WHERE autor_id=? AND plantilla IS NOT NULL ORDER BY id DESC LIMIT 2', uid).map((x) => x.plantilla);
+  const pl = stats?.plantillas || {};
+  let mejor = null, max = -1;
+  for (const k of PLANTILLAS) {
+    const base = pl[k] ?? 0.55; // sin datos: optimismo para que la pruebe
+    const pref = perfil?.estilo === k ? 0.12 : 0;
+    const repite = ult[0] === k ? -0.25 : ult[1] === k ? -0.08 : 0;
+    const v = base + pref + repite + Math.random() * 0.3;
+    if (v > max) { max = v; mejor = k; }
+  }
+  return mejor;
 }

@@ -3,10 +3,11 @@
 import React from 'react';
 import { AbsoluteFill, Sequence, Html5Audio, useCurrentFrame, interpolate } from 'remotion';
 import { PALETAS, Fondo, PrimerPlano, Camara, Acabado, Subtitulos, useVert, DISPLAY, MONO, clamp, PaletaCtx } from './fx.jsx';
-import { Gancho, Datos, Formula, Paso, Resultado, Iconos, Fraccion, Comparacion, Grafica, Cta, Pregunta, EleccionesCtx } from './escenas.jsx';
+import { Gancho, Datos, Formula, Paso, Resultado, Iconos, Fraccion, Comparacion, Grafica, Cta, Pregunta, Revision, EleccionesCtx } from './escenas.jsx';
+import { Transicion, transicionDe, DUR_TRANSICION } from './transiciones.jsx';
 import { ESTILOS, EstiloCtx, estiloDe, varsEstilo, FiltrosEstilo, tono } from './estilos.jsx';
 
-const ESCENAS = { gancho: Gancho, datos: Datos, formula: Formula, paso: Paso, resultado: Resultado, iconos: Iconos, fraccion: Fraccion, comparacion: Comparacion, grafica: Grafica, cta: Cta, pregunta: Pregunta };
+const ESCENAS = { gancho: Gancho, datos: Datos, formula: Formula, paso: Paso, resultado: Resultado, iconos: Iconos, fraccion: Fraccion, comparacion: Comparacion, grafica: Grafica, cta: Cta, pregunta: Pregunta, revision: Revision };
 const PARTE = (t) => (t === 'gancho' ? 0 : t === 'cta' ? 2 : 1);
 
 function Barra({ tl, P }) {
@@ -45,7 +46,7 @@ export function paletaDe(tl, estilo) {
   return E.P || { tx: '#ffffff', ...(PALETAS[tl?.paleta] || PALETAS.espacio) };
 }
 
-export function MathtrixVideo({ tl, estilo, elecciones }) {
+export function MathtrixVideo({ tl, estilo, elecciones, sinSonidos }) {
   if (!tl?.escenas?.length) return <AbsoluteFill style={{ background: '#0b0420' }} />;
   const clave = estiloDe(estilo || tl.estilo);
   const P = paletaDe(tl, clave);
@@ -77,7 +78,18 @@ export function MathtrixVideo({ tl, estilo, elecciones }) {
                   </Camara>
                   {e.audio && <Html5Audio src={base + e.audio} />}
                   {audioRama && <Sequence from={e.q} layout="none"><Html5Audio key={audioRama} src={base + audioRama} /></Sequence>}
-                  <Subtitulos palabras={palabras} P={P} abajo={e.tipo === 'gancho' || e.tipo === 'pregunta'} />
+                  {e.tipo === 'pregunta' && el[e.i] !== undefined && !sinSonidos && <Sequence from={e.q} layout="none"><Html5Audio key={'s' + el[e.i]} src={base + (el[e.i] === e.correcta ? '/sfx/ding.wav' : '/sfx/error.wav')} volume={0.4} /></Sequence>}
+                  <Subtitulos palabras={palabras} P={P} abajo={e.tipo === 'gancho' || e.tipo === 'pregunta' || e.tipo === 'revision'} />
+                </Sequence>
+              );
+            })}
+            {tl.escenas.slice(1).map((e, k) => {
+              const tipo = transicionDe(clave, k, (tl.titulo || '').length);
+              if (!tipo) return null;
+              return (
+                <Sequence key={'tr' + k} from={Math.max(0, e.inicio - DUR_TRANSICION / 2)} durationInFrames={DUR_TRANSICION} layout="none" name={'transición ' + tipo}>
+                  <Transicion tipo={tipo} P={P} emoji={tl.emoji} claro={ESTILOS[clave].claro} />
+                  {!sinSonidos && <Html5Audio src={base + '/sfx/whoosh.wav'} volume={0.22} />}
                 </Sequence>
               );
             })}

@@ -31,7 +31,7 @@ export function Onboarding({ editar }) {
   const { usuario, perfil, setPerfil } = useSesion();
   const nav = useNavigate();
   const [i, setI] = useState(0);
-  const [r, setR] = useState(() => ({ gustos: [], idolos: [], metas: [], aprende: [], complica: [], ambicion: '', voz: 'Andres', estilo: 'ilustrado', ...(perfil || {}) }));
+  const [r, setR] = useState(() => ({ gustos: [], idolos: [], metas: [], aprende: [], complica: [], ambicion: '', voz: 'Andres', estilo: 'auto', ...(perfil || {}) }));
   const set = (k) => (v) => setR({ ...r, [k]: v });
   const fin = async () => { await api('/perfil', { cuerpo: r }); setPerfil(r); if (editar) nav('/'); };
   const PASOS = [
@@ -40,7 +40,7 @@ export function Onboarding({ editar }) {
     { t: '¿Cómo aprendés mejor?', c: <>
       <Grupo titulo="Aprendo mejor…" ops={APRENDE} valor={r.aprende} onChange={set('aprende')} />
       <Grupo titulo="Se me complica" ops={COMPLICA} valor={r.complica} onChange={set('complica')} />
-      <div className="grupo"><div className="lab">Estilo de tus videos</div><SelectorEstilo valor={r.estilo} onChange={set('estilo')} /></div>
+      <div className="grupo"><div className="lab">Estilo de tus videos</div><SelectorEstilo conAuto valor={r.estilo} onChange={set('estilo')} /></div>
       <div className="grupo"><div className="lab">Voz</div><div className="seg"><button type="button" className={r.voz !== 'Marta' ? 'on' : ''} onClick={() => set('voz')('Andres')}>Voz masculina</button><button type="button" className={r.voz === 'Marta' ? 'on' : ''} onClick={() => set('voz')('Marta')}>Voz femenina</button></div></div>
     </> },
   ];

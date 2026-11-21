@@ -1,6 +1,6 @@
 // Plantillas visuales. El guion es el mismo; solo cambia como se dibuja (cambio instantaneo).
 import React, { createContext, useContext } from 'react';
-import { AbsoluteFill, useCurrentFrame, random } from 'remotion';
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, random } from 'remotion';
 import { noise2D } from '@remotion/noise';
 
 const G = (f) => `'${f}'`;
@@ -35,10 +35,28 @@ export const ESTILOS = {
     cap: { fuente: 'cuerpo', peso: 400, v: 78, h: 58, mayus: false, max: 5, trazo: '0', color: '#1d2b5a', activo: '#1d2b5a', fondoActivo: '#ffe94d' },
   },
   neon: {
-    nombre: 'Neón', desc: 'Tipografía cinética tipo TikTok con brillo neón', emoji: 'neon', camara: 1.4, mascota: false, entrada: 'golpe',
+    nombre: 'Neón', desc: 'Brillo neón, grilla retro y energía tipo TikTok', emoji: 'neon', camara: 1.4, mascota: false, entrada: 'golpe',
     P: { f1: '#030008', f2: '#1a0033', a: '#00f0ff', b: '#ff2e88', c: '#faff00', tx: '#ffffff' },
     fuentes: { display: G('Anton'), cuerpo: G('Plus Jakarta Sans'), mate: G('JetBrains Mono') },
     cap: { fuente: 'display', peso: 400, v: 120, h: 84, mayus: true, max: 2, trazo: '0', color: '#ffffff', activo: '#00f0ff', brillo: true },
+  },
+  vector: {
+    nombre: 'Vector luz', desc: 'Ilustración plana con luz de borde, planetas y paralaje, tipo documental animado', emoji: 'vector', camara: 0.8, mascota: false, entrada: 'golpe',
+    P: { f1: '#0E0A2E', f2: '#1A0F45', a: '#FFC23D', b: '#E0457B', c: '#2EC4F1', tx: '#F2F6EE' },
+    fuentes: { display: G('Baloo 2'), cuerpo: G('Nunito'), mate: G('Baloo 2') },
+    cap: { fuente: 'cuerpo', peso: 900, v: 58, h: 44, mayus: false, max: 4, trazo: '0', color: '#F2F6EE', activo: '#FFC23D', caja: { bg: '#2C6BE0', borde: '0', radio: 16 } },
+  },
+  cinetica: {
+    nombre: 'Cinética', desc: 'Las palabras son la animación: cada frase golpea al ritmo', emoji: 'color', camara: 1.5, mascota: false, entrada: 'golpe',
+    P: { f1: '#0a0a0a', f2: '#161616', a: '#FFE14D', b: '#FF3B5C', c: '#4CC9F0', tx: '#ffffff' },
+    fuentes: { display: G('Archivo Black'), cuerpo: G('Inter'), mate: G('JetBrains Mono') },
+    cap: { fuente: 'display', peso: 400, v: 150, h: 104, mayus: true, max: 3, trazo: '0', color: '#ffffff', activo: '#FFE14D', cinetica: true },
+  },
+  riso: {
+    nombre: 'Riso', desc: 'Impreso en tintas flúor que se desfasan, semitono y grano', emoji: 'riso', camara: 0.9, mascota: false, entrada: 'golpe', claro: true,
+    P: { f1: '#F3EBDD', f2: '#EFE4D0', a: '#FF48B0', b: '#0078BF', c: '#FFE800', tx: '#1A1A1A' },
+    fuentes: { display: G('Archivo Black'), cuerpo: G('Space Grotesk'), mate: G('Space Grotesk') },
+    cap: { fuente: 'display', peso: 400, v: 68, h: 50, mayus: true, max: 3, trazo: '0', color: '#1A1A1A', activo: '#1A1A1A', fondoActivo: '#FFE800' },
   },
 };
 export const LISTA_ESTILOS = Object.keys(ESTILOS);
@@ -89,6 +107,27 @@ export function varsEstilo(k, P) {
       '--mtx-chip-bg': 'transparent', '--mtx-chip-tx': P.a, '--mtx-chip-borde': `2px solid ${P.a}`, '--mtx-chip-sombra': `0 0 20px ${P.a}, inset 0 0 12px ${P.a}88`,
       '--mtx-resalta-bg': 'transparent', '--mtx-resalta-tx': P.c, '--mtx-resalta-sombra': 'none', '--mtx-sombra-texto': `0 0 18px ${P.b}, 0 0 42px ${P.b}`, '--mtx-trazo-texto': '0',
       '--mtx-resultado': `linear-gradient(180deg, #fff, ${P.a})`, '--mtx-resultado-filtro': `drop-shadow(0 0 20px ${P.a}) drop-shadow(0 0 50px ${P.b})`,
+    },
+    vector: {
+      '--mtx-panel-bg': 'linear-gradient(165deg, #34267a, #221a5c)', '--mtx-panel-borde': '0',
+      '--mtx-panel-sombra': `inset 0 4px 0 rgba(255,233,168,.32), inset -22px -26px 0 rgba(8,4,30,.28), 0 28px 70px rgba(5,2,25,.6), 0 0 90px ${P.c}22`, '--mtx-panel-radio': '44px',
+      '--mtx-chip-bg': '#E0457B', '--mtx-chip-tx': '#ffffff', '--mtx-chip-borde': '0', '--mtx-chip-radio': '12px', '--mtx-chip-sombra': '0 10px 30px rgba(224,69,123,.45)',
+      '--mtx-resalta-bg': '#2C6BE0', '--mtx-resalta-tx': '#ffffff', '--mtx-resalta-sombra': 'none',
+      '--mtx-sombra-texto': '0 0 30px rgba(255,233,168,.25), 0 6px 0 rgba(8,4,30,.5)', '--mtx-trazo-texto': '0',
+      '--mtx-resultado': 'linear-gradient(180deg, #FFF4C2 5%, #FFC23D 50%, #EC8F24 100%)', '--mtx-resultado-filtro': 'drop-shadow(0 0 40px rgba(255,194,61,.6)) drop-shadow(0 10px 0 rgba(8,4,30,.5))',
+    },
+    cinetica: {
+      '--mtx-panel-bg': 'rgba(10,10,10,.6)', '--mtx-panel-borde': '5px solid #ffffff', '--mtx-panel-sombra': `14px 14px 0 ${P.a}`, '--mtx-panel-radio': '0px',
+      '--mtx-chip-bg': P.a, '--mtx-chip-tx': '#0a0a0a', '--mtx-chip-borde': '0', '--mtx-chip-radio': '0px', '--mtx-chip-sombra': `8px 8px 0 ${P.b}`,
+      '--mtx-resalta-bg': P.b, '--mtx-resalta-tx': '#ffffff', '--mtx-resalta-sombra': 'none', '--mtx-sombra-texto': `8px 8px 0 ${P.b}`, '--mtx-trazo-texto': '0',
+      '--mtx-resultado': `linear-gradient(180deg, #ffffff, ${P.a})`, '--mtx-resultado-filtro': `drop-shadow(10px 10px 0 ${P.b})`,
+    },
+    riso: {
+      '--mtx-tx2': 'rgba(26,26,26,.7)', '--mtx-sobre-acento': '#1A1A1A',
+      '--mtx-panel-bg': 'rgba(255,72,176,.13)', '--mtx-panel-borde': '0', '--mtx-panel-sombra': '12px 12px 0 rgba(0,120,191,.8)', '--mtx-panel-radio': '8px',
+      '--mtx-chip-bg': '#FFE800', '--mtx-chip-tx': '#1A1A1A', '--mtx-chip-borde': '0', '--mtx-chip-radio': '4px', '--mtx-chip-sombra': '6px 6px 0 rgba(255,72,176,.85)',
+      '--mtx-resalta-bg': '#FF48B0', '--mtx-resalta-tx': '#ffffff', '--mtx-resalta-sombra': '6px 6px 0 rgba(0,120,191,.8)', '--mtx-sombra-texto': '5px 5px 0 rgba(255,72,176,.5)', '--mtx-trazo-texto': '0',
+      '--mtx-resultado': 'linear-gradient(180deg, #FF48B0, #0078BF)', '--mtx-resultado-filtro': 'drop-shadow(8px 8px 0 rgba(255,232,0,.9))',
     },
   }[estiloDe(k)] || {};
   return { ...base, ...extra };
@@ -141,6 +180,32 @@ export function FiltrosEstilo() {
           <feComposite in2="bo" operator="in" result="sombra" />
           <feMerge><feMergeNode in="sombra" /><feMergeNode in="borde" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
+        {/* vector plano: colores en pocos niveles, luz de borde arriba-izquierda, sombra en media luna y halo */}
+        <filter id="mtx-vector" x="-25%" y="-25%" width="150%" height="150%" colorInterpolationFilters="sRGB">
+          <feComponentTransfer in="SourceGraphic" result="plano">
+            <feFuncR type="discrete" tableValues="0.04 0.28 0.55 0.8 1" /><feFuncG type="discrete" tableValues="0.04 0.28 0.55 0.8 1" /><feFuncB type="discrete" tableValues="0.12 0.35 0.62 0.86 1" />
+          </feComponentTransfer>
+          <feColorMatrix in="plano" type="saturate" values="1.5" result="sat" />
+          <feGaussianBlur in="SourceAlpha" stdDeviation="20" result="halo" />
+          <feFlood floodColor="#FFE9A8" floodOpacity="0.4" /><feComposite in2="halo" operator="in" result="glow" />
+          <feOffset in="SourceAlpha" dx="9" dy="9" result="abajo" />
+          <feComposite in="SourceAlpha" in2="abajo" operator="out" result="borde" />
+          <feFlood floodColor="#FFF4C2" floodOpacity="0.7" /><feComposite in2="borde" operator="in" result="luz" />
+          <feOffset in="SourceAlpha" dx="-16" dy="-16" result="arriba" />
+          <feComposite in="SourceAlpha" in2="arriba" operator="out" result="luna" />
+          <feFlood floodColor="#0E0A2E" floodOpacity="0.38" /><feComposite in2="luna" operator="in" result="sombra" />
+          <feMerge><feMergeNode in="glow" /><feMergeNode in="sat" /><feMergeNode in="sombra" /><feMergeNode in="luz" /></feMerge>
+        </filter>
+        {/* riso: dos tintas (rosa y azul) desfasadas, como impresion mal registrada */}
+        <filter id="mtx-riso" x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+          <feColorMatrix in="SourceGraphic" type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1 0" result="gris" />
+          <feColorMatrix in="gris" type="matrix" values="0 0 0 0 1  0 0 0 0 0.28  0 0 0 0 0.69  -1.3 0 0 0 1.25" result="rosa0" />
+          <feComposite in="rosa0" in2="SourceAlpha" operator="in" result="rosa" />
+          <feColorMatrix in="gris" type="matrix" values="0 0 0 0 0  0 0 0 0 0.47  0 0 0 0 0.75  -1.6 0 0 0 1.05" result="azul0" />
+          <feComposite in="azul0" in2="SourceAlpha" operator="in" result="azul1" />
+          <feOffset in="azul1" dx="9" dy="7" result="azul" />
+          <feBlend in="rosa" in2="azul" mode="multiply" />
+        </filter>
       </defs>
     </svg>
   );
@@ -150,6 +215,8 @@ export function filtroEmoji(clave, E, P, ligero) {
   if (E.emoji === 'linea') return ligero ? (E.claro ? 'brightness(0)' : 'brightness(0) invert(1)') + ' opacity(.85)' : `url(#mtx-linea-${clave})`;
   if (E.emoji === 'sticker') return ligero ? 'drop-shadow(0 4px 4px rgba(60,40,0,.25))' : 'url(#mtx-sticker)';
   if (E.emoji === 'neon') return `drop-shadow(0 0 10px ${P.b}) drop-shadow(0 0 26px ${P.a}88)`;
+  if (E.emoji === 'vector') return ligero ? 'saturate(1.4) drop-shadow(0 0 14px rgba(255,233,168,.45))' : 'url(#mtx-vector)';
+  if (E.emoji === 'riso') return ligero ? 'grayscale(1) contrast(1.3) sepia(1) hue-rotate(280deg) saturate(4)' : 'url(#mtx-riso)';
   return 'drop-shadow(0 18px 26px rgba(0,0,0,.45))';
 }
 
@@ -205,7 +272,93 @@ export function AcabadoEstilo({ clave }) {
   if (clave === 'tiza') return <AbsoluteFill style={{ pointerEvents: 'none', background: 'radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.45))' }} />;
   if (clave === 'cuaderno') return <AbsoluteFill style={{ pointerEvents: 'none', background: 'radial-gradient(ellipse at 50% 40%, transparent 60%, rgba(120,90,30,.14))' }} />;
   if (clave === 'blueprint') return <AbsoluteFill style={{ pointerEvents: 'none', background: 'radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,10,40,.5))' }} />;
+  if (clave === 'vector') return <AbsoluteFill style={{ pointerEvents: 'none', background: 'radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(6,2,30,.55))' }} />;
+  if (clave === 'riso') return <GranoRiso />;
   return null;
 }
-export const FONDOS = { tiza: FondoTiza, blueprint: FondoBlueprint, manim: FondoManim, cuaderno: FondoCuaderno, neon: FondoNeon };
+
+// ---------------- plantillas nuevas: Vector luz (guia de estilo documental), Cinetica y Riso (Atlas) ----------------
+function Cerros({ color, alto, y, vel, f, semilla, W }) {
+  // silueta de cerros redondeados que se desplaza en paralaje (dos copias seguidas)
+  const pts = Array.from({ length: 9 }, (_, i) => [i * 250, 120 - random(semilla + i) * 110]);
+  let d = `M0 ${pts[0][1]}`;
+  for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; d += ` C${x0 + 125} ${y0} ${x1 - 125} ${y1} ${x1} ${y1}`; }
+  d += ' L2000 300 L0 300 Z';
+  const dx = -((f * vel) % 2000);
+  return (
+    <div style={{ position: 'absolute', left: 0, top: y, width: W * 3, height: alto, transform: `translateX(${dx}px)` }}>
+      {[0, 1].map((k) => <svg key={k} viewBox="0 0 2000 300" preserveAspectRatio="none" style={{ position: 'absolute', left: k * 2000, top: 0, width: 2000, height: alto }}><path d={d} fill={color} /></svg>)}
+    </div>
+  );
+}
+export function FondoVector({ P }) {
+  const f = useCurrentFrame();
+  const { width: W, height: H } = useVideoConfig();
+  const v = H > W;
+  const pl = v ? 820 : 640;
+  return (
+    <AbsoluteFill style={{ background: `radial-gradient(140% 90% at 75% 0%, #2B1772 0%, ${P.f2} 42%, ${P.f1} 82%)`, overflow: 'hidden' }}>
+      {Array.from({ length: 70 }, (_, i) => {
+        const tw = 0.35 + 0.65 * Math.abs(Math.sin((f + i * 17) / (18 + (i % 7) * 4)));
+        const s = 2 + random('vs' + i) * 4;
+        return <div key={i} style={{ position: 'absolute', left: `${random('vx' + i) * 100}%`, top: `${random('vy' + i) * 70}%`, width: s, height: s, borderRadius: '50%', background: i % 9 === 0 ? '#FFE9A8' : '#F2F6EE', opacity: tw * 0.85, boxShadow: i % 9 === 0 ? '0 0 12px #FFE9A8' : 'none', transform: `translateX(${-f * 0.05}px)` }} />;
+      })}
+      <div style={{ position: 'absolute', right: v ? -pl * 0.35 : -pl * 0.18, top: v ? -pl * 0.2 : -pl * 0.32, width: pl, height: pl, transform: `translateX(${-f * 0.12}px) rotate(${f * 0.02}deg)` }}>
+        <div style={{ position: 'absolute', inset: -40, borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(46,196,241,.35), transparent)', filter: 'blur(6px)' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', overflow: 'hidden', background: 'radial-gradient(circle at 35% 30%, #6FD8F5, #2EC4F1 30%, #2576CB 62%, #1B2A78 100%)', boxShadow: 'inset 0 0 0 10px rgba(178,240,255,.25)' }}>
+          {[[18, 30, 34, 18], [52, 55, 30, 22], [30, 70, 22, 12]].map(([x, y, w, h], i) => <div key={i} style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, borderRadius: '45% 55% 50% 40%', background: '#22B573', opacity: 0.85 }} />)}
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'radial-gradient(circle at 78% 82%, rgba(14,10,46,.85) 0%, rgba(14,10,46,.55) 30%, transparent 58%)' }} />
+        </div>
+      </div>
+      <div style={{ position: 'absolute', left: v ? '8%' : '6%', top: v ? '9%' : '12%', width: v ? 90 : 70, height: v ? 90 : 70, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #FFF4C2, #F4BF29 55%, #EC8F24)', boxShadow: '0 0 60px rgba(244,191,41,.55)', transform: `translateY(${Math.sin(f / 40) * 10}px)` }} />
+      <Cerros color="#2A1A6E" alto={H * 0.3} y={H * 0.74} vel={0.35} f={f} semilla="c1" W={W} />
+      <Cerros color="#1C1150" alto={H * 0.22} y={H * 0.83} vel={0.7} f={f} semilla="c2" W={W} />
+      <Cerros color="#0B0722" alto={H * 0.14} y={H * 0.91} vel={1.4} f={f} semilla="c3" W={W} />
+      {Array.from({ length: 18 }, (_, i) => {
+        const y = (random('py' + i) * H - f * (0.6 + random('pv' + i))) % H;
+        return <div key={'p' + i} style={{ position: 'absolute', left: `${random('px' + i) * 100}%`, top: y < 0 ? y + H : y, width: 6, height: 6, borderRadius: '50%', background: '#FFE9A8', opacity: 0.35, boxShadow: '0 0 14px 4px rgba(255,233,168,.35)', mixBlendMode: 'screen' }} />;
+      })}
+    </AbsoluteFill>
+  );
+}
+export function FondoCinetica({ P }) {
+  const f = useCurrentFrame();
+  const fila = (txt, y, vel, color, op) => {
+    const dx = vel > 0 ? -((f * vel) % 1700) : -1700 + ((-f * vel) % 1700);
+    return <div style={{ position: 'absolute', left: 0, top: y, whiteSpace: 'nowrap', fontFamily: "'Archivo Black'", fontSize: 250, lineHeight: 1, color: 'transparent', WebkitTextStroke: `3px ${color}`, opacity: op, transform: `translateX(${dx}px)` }}>{txt.repeat(10)}</div>;
+  };
+  return (
+    <AbsoluteFill style={{ background: '#0a0a0a', overflow: 'hidden' }}>
+      {fila('PENSÁ · CALCULÁ · ', '4%', 3, '#ffffff', 0.08)}
+      {fila('MATE · MATHTRIX · ', '38%', -2.2, P.a, 0.1)}
+      {fila('¿Y SI…? · RESOLVÉ · ', '72%', 2.6, '#ffffff', 0.07)}
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(60% 55% at 50% 50%, transparent, rgba(0,0,0,.7))' }} />
+    </AbsoluteFill>
+  );
+}
+const PUNTOS = (c, tam = 22, r = 38) => `radial-gradient(circle, ${c} ${r}%, transparent ${r + 2}%) 0 0/${tam}px ${tam}px`;
+export function FondoRiso({ P }) {
+  const f = useCurrentFrame();
+  const { width: W, height: H } = useVideoConfig();
+  const v = H > W;
+  const g = v ? 1000 : 820;
+  return (
+    <AbsoluteFill style={{ background: P.f1, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', right: -g * 0.3, top: -g * 0.25, width: g, height: g, borderRadius: '50%', background: PUNTOS('#FF48B0', 24, 40), WebkitMaskImage: 'radial-gradient(circle, #000 25%, transparent 70%)', mixBlendMode: 'multiply', transform: `rotate(${f * 0.05}deg)` }} />
+      <div style={{ position: 'absolute', left: -g * 0.35, bottom: -g * 0.3, width: g * 0.9, height: g * 0.9, borderRadius: '50%', background: PUNTOS('#0078BF', 20, 36), WebkitMaskImage: 'radial-gradient(circle, #000 20%, transparent 68%)', mixBlendMode: 'multiply' }} />
+      <div style={{ position: 'absolute', left: '62%', top: v ? '58%' : '52%', width: 220, height: 220, borderRadius: '50%', background: '#FFE800', mixBlendMode: 'multiply', transform: `translate(${Math.sin(f / 30) * 8}px, ${Math.cos(f / 36) * 8}px)` }} />
+      <div style={{ position: 'absolute', left: 'calc(62% + 14px)', top: v ? 'calc(58% + 10px)' : 'calc(52% + 10px)', width: 220, height: 220, borderRadius: '50%', border: '6px solid #FF48B0', mixBlendMode: 'multiply' }} />
+      {['+', '÷', '×', '='].map((s, i) => <div key={s} style={{ position: 'absolute', left: `${8 + random('rx' + i) * 80}%`, top: `${8 + random('ry' + i) * 80}%`, fontFamily: "'Archivo Black'", fontSize: 120, color: i % 2 ? '#0078BF' : '#FF48B0', opacity: 0.18, mixBlendMode: 'multiply', transform: `rotate(${random('rr' + i) * 40 - 20}deg)` }}>{s}</div>)}
+    </AbsoluteFill>
+  );
+}
+function GranoRiso() {
+  return (
+    <AbsoluteFill style={{ pointerEvents: 'none', mixBlendMode: 'multiply', opacity: 0.4 }}>
+      <svg width="100%" height="100%"><filter id="mtx-grano-riso"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="4" /><feColorMatrix values="0 0 0 0 0.12  0 0 0 0 0.1  0 0 0 0 0.12  0 0 0 0.55 -0.1" /></filter><rect width="100%" height="100%" filter="url(#mtx-grano-riso)" /></svg>
+    </AbsoluteFill>
+  );
+}
+
+export const FONDOS = { tiza: FondoTiza, blueprint: FondoBlueprint, manim: FondoManim, cuaderno: FondoCuaderno, neon: FondoNeon, vector: FondoVector, cinetica: FondoCinetica, riso: FondoRiso };
 export const tono = (hex, a) => { const h = String(hex || '#ffffff').replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h.slice(0, 6), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };

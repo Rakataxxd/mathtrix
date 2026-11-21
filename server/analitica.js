@@ -1,7 +1,7 @@
 // Analitica para el profesor: donde se quedan, donde pausan/rebobinan y si comprendieron.
 import { uno, todos, json } from './db.js';
 
-const NOMBRE_ESCENA = { gancho: 'Gancho', datos: 'Datos del problema', formula: 'Fórmula', paso: 'Pasos de resolución', resultado: 'Resultado', iconos: 'Visualización', fraccion: 'Fracción visual', comparacion: 'Comparación', grafica: 'Gráfica', cta: 'Reto final' };
+const NOMBRE_ESCENA = { revision: 'Revisión de su trabajo', pregunta: 'Pregunta en el video', gancho: 'Gancho', datos: 'Datos del problema', formula: 'Fórmula', paso: 'Pasos de resolución', resultado: 'Resultado', iconos: 'Visualización', fraccion: 'Fracción visual', comparacion: 'Comparación', grafica: 'Gráfica', cta: 'Reto final' };
 
 function sesionesDe(videoIds) {
   if (!videoIds.length) return [];
@@ -89,7 +89,20 @@ export function analiticaLeccion(l) {
   if (mejor) ins.push({ tipo: 'estilo', txt: `Los ganchos de estilo «${mejor[0]}» dan mejores resultados en el test (${Math.round(mejor[1] * 100)} %).` });
 
   resumen.en_video = enVideo.total ? Math.round(enVideo.ok / enVideo.total * 100) : null;
-  return { leccion: { id: l.id, titulo: l.titulo, tema: l.tema }, resumen, retencion, trabas, abandono, preguntas, distrib, alumnos: filas, insights: ins };
+  // dudas que escribieron al pausar (tutor IA), reflexion final y "acierta pero lento" (Kumon)
+  const dudas = ids.length ? todos(`SELECT d.id, d.pregunta, d.respuesta, d.t, d.escena_tipo, d.creado, u.nombre FROM dudas d JOIN usuarios u ON u.id=d.usuario_id WHERE d.video_id IN (${ph}) ORDER BY d.id DESC LIMIT 40`, ...ids) : [];
+  const porEscena = {};
+  for (const d of dudas) if (d.escena_tipo) porEscena[d.escena_tipo] = (porEscena[d.escena_tipo] || 0) + 1;
+  const topDuda = Object.entries(porEscena).sort((a, b) => b[1] - a[1])[0];
+  if (topDuda) ins.unshift({ tipo: 'duda', txt: `${dudas.length} duda(s) escritas al pausar; la mayoría en «${NOMBRE_ESCENA[topDuda[0]] || topDuda[0]}». Leelas abajo: dicen qué explicar mejor.` });
+  const refl = ids.length ? todos(`SELECT extra FROM eventos WHERE video_id IN (${ph}) AND tipo='reflexion'`, ...ids).map((r) => json(r.extra, {})) : [];
+  const reflexion = { domino: refl.filter((r) => r.valor === 'domino').length, mas_o_menos: refl.filter((r) => r.valor === 'mas_o_menos').length, perdido: refl.filter((r) => r.valor === 'perdido').length };
+  let lentos = 0;
+  for (const i of ultimoPorAlumno.values()) if (json(i.respuestas, []).some((d) => d.ok && d.ms > 25000)) lentos++;
+  if (lentos) ins.push({ tipo: 'lento', txt: `${lentos} alumno(s) aciertan pero tardan más de 25 s: dominan la idea, les falta práctica para ganar soltura.` });
+  if (reflexion.perdido) ins.push({ tipo: 'reflexion', txt: `${reflexion.perdido} alumno(s) marcaron «me perdí» al terminar.` });
+  resumen.dudas = dudas.length;
+  return { leccion: { id: l.id, titulo: l.titulo, tema: l.tema }, resumen, retencion, trabas, abandono, preguntas, distrib, alumnos: filas, insights: ins, dudas, reflexion };
 }
 
 export function analiticaCurso(c) {

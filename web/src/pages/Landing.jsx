@@ -6,6 +6,7 @@ import { api, useSesion } from '../api.js';
 import { MathtrixVideo } from '../video/MathtrixVideo.jsx';
 import { ESTILOS, LISTA_ESTILOS, FiltrosEstilo } from '../video/estilos.jsx';
 import { MUESTRA } from '../components/SelectorEstilo.jsx';
+import { BotonTema } from '../components/ui.jsx';
 
 const MUESTRA_V = { ...MUESTRA, ancho: 1080, alto: 1920, formato: 'vertical' };
 
@@ -66,6 +67,7 @@ export function Landing() {
       <nav className="l-nav vidrio">
         <div className="logo"><span className="ico">[π]</span><span>mathtrix</span></div>
         <div className="fila" style={{ gap: 6 }}>
+          <BotonTema boton />
           <button className="btn chico fant" onClick={() => setAuth({ modo: 'entrar' })}>Entrar</button>
           <button className="btn chico lima" onClick={() => setAuth({ modo: 'registro' })}>Empezar</button>
         </div>

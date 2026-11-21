@@ -31,6 +31,21 @@ Desarrollo con recarga: `npm run server` + `npm run dev` (Vite en 5173 con proxy
    fondo en 3 capas, mascota que habla, grano y viñeta.
 5. **Pre-generación**: al abrir una clase, el Short del alumno ya empieza a generarse.
 
+## Lo que reacciona al alumno
+
+- **Tutor en el video**: botón «¿Duda?» (o en el riel de Shorts). Pausa, el alumno escribe y Haiku responde en el globo
+  con el contexto exacto de las escenas que vio (dónde pausó, números del video, sus gustos). Las dudas quedan para el profe.
+- **Revisar mi ejercicio**: foto o PDF de la hoja → Haiku lee cada paso (✓/✗, primer error, qué falta) → video desde donde
+  se quedó, con la escena «Tu solución», qué pasaría con su error y la corrección verificada con sympy. Privado.
+- **Pregunta con 2 botones** (paso correcto vs error común). Si elige el error: tarjeta «Si hacés eso…» con la consecuencia.
+- **Reto final**: cada distractor numérico trae su consecuencia («te pasás 10 veces»). Al terminar: XP y nivel, reflexión de
+  un toque, «Practicar otro parecido» si acertó lento (más de 25 s) y «Video más básico» si le fue mal.
+- **Plantillas**: 9 (nuevas: Vector luz, Cinética, Riso), transiciones sin fundido y efectos de sonido generados por código
+  (`node scripts/sfx.mjs`). «Sorprendeme» elige la plantilla que más engancha a cada alumno (completa, likes, test) y explora.
+- **Puntos y ranking**: XP por ver, acertar, responder en el video, preguntar, revisar y racha; niveles, logros y ranking
+  de la clase o global (semana / siempre). Repetir un reto no suma.
+- **Modo claro** por defecto; oscuro desde el menú (los Shorts siempre oscuros).
+
 ## Data que se registra
 
 Play, pausa, rebobinar, salto, fin, latidos cada 5 s, pestaña oculta, velocidad, likes, comentarios y cada
@@ -44,7 +59,7 @@ funciona por alumno, temas débiles. El perfil se retroalimenta al siguiente vid
 
 ## Pruebas
 
-`node scripts/e2e.mjs` (flujo completo por API) · `node scripts/prueba.mjs` (capturas headless en `data/capturas`).
+`node scripts/e2e.mjs` (flujo completo por API) · `node scripts/revisar-foto.mjs` (foto → video de corrección) · `node scripts/api-tutor.mjs` (tutor, puntos, ranking) · `node scripts/interaccion.mjs` · `node scripts/capturas2.mjs` (capturas headless en `data/capturas`).
 
 Los alumnos `alumno1..10@demo.gt` llevan eventos y tests **sintéticos** (marcados `demo=1`) para que el panel
 del profe tenga datos. Para empezar limpio: borrar `data/` y correr `npm run seed`.

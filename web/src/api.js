@@ -17,6 +17,14 @@ export async function api(ruta, { metodo, cuerpo, form } = {}) {
   return d;
 }
 
+// tema visual: claro por defecto; el oscuro se recuerda en este navegador
+export function getTema() { try { return localStorage.getItem('mtx_tema') === 'oscuro' ? 'oscuro' : 'claro'; } catch { return 'claro'; } }
+export function setTema(t) {
+  try { localStorage.setItem('mtx_tema', t); } catch {}
+  if (t === 'oscuro') document.documentElement.dataset.tema = 'oscuro'; else delete document.documentElement.dataset.tema;
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', t === 'oscuro' ? '#050508' : '#f4f4f7');
+}
+
 export const Sesion = createContext(null);
 export const useSesion = () => useContext(Sesion);
 

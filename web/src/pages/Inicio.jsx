@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Sparkles, Zap, Smartphone, RectangleHorizontal } from 'lucide-react';
+import { Sparkles, Zap, Smartphone, RectangleHorizontal, Camera } from 'lucide-react';
 import { api, useSesion } from '../api.js';
 import { VideoCard } from '../components/ui.jsx';
 import { Generador } from '../components/Generador.jsx';
+import { ModalRevisar } from '../components/RevisarFoto.jsx';
 
 const TEMAS = ['Todo', 'Volumen', 'Velocidad', 'Porcentajes', 'Ecuaciones', 'Probabilidad', 'Fracciones', 'Área', 'Pitágoras'];
 const sinTilde = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -16,6 +17,7 @@ export function Inicio() {
   const [idea, setIdea] = useState('');
   const [formato, setFormato] = useState('vertical');
   const [trabajo, setTrabajo] = useState(null);
+  const [foto, setFoto] = useState(false);
   const q = params.get('q') || '';
   useEffect(() => { api('/feed' + (q ? '?q=' + encodeURIComponent(q) : '')).then(setVids).catch(() => setVids([])); }, [q]);
   const crear = async (e) => {
@@ -35,9 +37,11 @@ export function Inicio() {
             <button type="button" className={formato === 'vertical' ? 'on' : ''} onClick={() => setFormato('vertical')} aria-label="Short"><Smartphone size={15} /></button>
             <button type="button" className={formato === 'horizontal' ? 'on' : ''} onClick={() => setFormato('horizontal')} aria-label="Video"><RectangleHorizontal size={15} /></button>
           </div>
+          <button type="button" className="btn ico" onClick={() => setFoto(true)} aria-label="Revisar mi ejercicio con una foto" title="Revisar mi ejercicio (foto)"><Camera size={17} /></button>
           <button className="btn lima" disabled={!idea.trim()}>Crear</button>
         </form>
       )}
+      {foto && <ModalRevisar onCerrar={() => setFoto(false)} />}
       <div className="pegajoso"><div className="chips">{TEMAS.map((t) => <button key={t} className={'chip' + (t === tema ? ' on' : '')} onClick={() => setTema(t)}>{t}</button>)}</div></div>
       {q && <h1 style={{ fontSize: 22, margin: '8px 0 20px' }}>Resultados para «{q}»</h1>}
       {vids === null && <div className="vacio">Cargando…</div>}

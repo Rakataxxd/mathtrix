@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
-import { ThumbsUp, ThumbsDown, Share2, Check, Target, Palette, ChevronDown } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Share2, Check, Target, Palette, ChevronDown, MessageCircleQuestion } from 'lucide-react';
 import { api, hace, vistas } from '../api.js';
 import { Avatar, Poster } from '../components/ui.jsx';
 import { Reproductor } from '../components/Reproductor.jsx';
@@ -67,6 +67,7 @@ export function Ver() {
             </div>
             <MenuEstilo valor={estilo} onChange={setEstilo} />
             <button className="btn" onClick={() => { navigator.clipboard?.writeText(location.href); setCopiado(true); setTimeout(() => setCopiado(false), 1500); }}>{copiado ? <Check size={16} /> : <Share2 size={16} />}{copiado ? 'Copiado' : 'Compartir'}</button>
+            <button className="btn" onClick={() => { rep.current?.abrirDuda?.(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><MessageCircleQuestion size={16} />Duda</button>
             {v.quiz?.length > 0 && <button className="btn lima" onClick={() => { rep.current?.abrirReto?.(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Target size={16} />{v.intento ? `Reto ${v.intento.aciertos}/${v.intento.total}` : 'Reto'}</button>}
           </div>
         </div>

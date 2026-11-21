@@ -174,7 +174,38 @@ function trozos(palabras, max) {
   if (cur.length) out.push(cur);
   return out;
 }
-export function Subtitulos({ palabras, P, abajo }) {
+export function Subtitulos(props) {
+  const E = useEstilo();
+  if (E.cap.cinetica) return <SubCinetica {...props} />;
+  return <SubNormal {...props} />;
+}
+/** Tipografia cinetica: la palabra que se dice ocupa la pantalla y golpea; las anteriores quedan chicas arriba. */
+function SubCinetica({ palabras, P, abajo }) {
+  const f = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const { W, v } = useVert();
+  const cap = useEstilo().cap;
+  const t = f / fps;
+  const ps = palabras || [];
+  let k = -1;
+  for (let i = 0; i < ps.length; i++) if (t >= ps[i].t - 0.03) k = i;
+  if (k < 0) return null;
+  const p = ps[k];
+  if (k === ps.length - 1 && t > p.t + p.d + 0.7) return null;
+  let ini = k; while (ini > 0 && k - ini < 3 && !ps[ini].corte) ini--;
+  const prev = ps.slice(ini, k).filter((x) => !x.corte || x === ps[ini]);
+  const pop = spring({ frame: f - Math.round(p.t * fps), fps, config: { damping: 9, mass: 0.4 } });
+  const w = p.w.replace(/[.,;:¿?¡!"]/g, '');
+  const fs = (v ? cap.v : cap.h) * Math.min(1, 7 / Math.max(4, w.length));
+  const col = [cap.color, cap.activo, P.c, cap.color, P.b][k % 5];
+  return (
+    <div style={{ position: 'absolute', left: W * 0.05, right: W * 0.05, top: v ? (abajo ? '71%' : '62%') : undefined, bottom: v ? undefined : '5%', textAlign: 'center', fontFamily: DISPLAY, textTransform: 'uppercase' }}>
+      <div style={{ fontSize: fs * 0.3, color: cap.color, opacity: 0.55, letterSpacing: '.02em', minHeight: '1.1em' }}>{prev.map((x) => x.w.replace(/[.,;:]$/, '')).join(' ')}</div>
+      <div style={{ display: 'inline-block', fontSize: fs, lineHeight: 0.95, color: col, transform: `scale(${0.55 + pop * 0.45}) rotate(${(1 - pop) * (k % 2 ? 7 : -7)}deg)`, textShadow: `8px 8px 0 ${P.b}` }}>{w}</div>
+    </div>
+  );
+}
+function SubNormal({ palabras, P, abajo }) {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
   const { W, v } = useVert();
@@ -190,7 +221,7 @@ export function Subtitulos({ palabras, P, abajo }) {
   const pop = spring({ frame: f - Math.round(g[0].t * fps), fps, config: { damping: 11, mass: 0.45 } });
   return (
     <div style={{ position: 'absolute', left: W * 0.06, right: W * 0.06, top: v ? (abajo ? '79%' : '64%') : undefined, bottom: v ? undefined : '7%', textAlign: 'center', transform: `scale(${0.82 + pop * 0.18})`, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0 .3em', fontFamily: cap.fuente === 'display' ? DISPLAY : cap.fuente === 'mate' ? MONO : FUENTE, fontWeight: cap.peso, fontSize: v ? cap.v : cap.h, lineHeight: 1.15, letterSpacing: cap.mayus ? '-0.01em' : 0, textTransform: cap.mayus ? 'uppercase' : 'none', ...(cap.caja ? { background: 'rgba(8,36,87,.85)', border: '2px solid #eaf4ff', padding: '8px 22px' } : {}) }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0 .3em', fontFamily: cap.fuente === 'display' ? DISPLAY : cap.fuente === 'mate' ? MONO : FUENTE, fontWeight: cap.peso, fontSize: v ? cap.v : cap.h, lineHeight: 1.15, letterSpacing: cap.mayus ? '-0.01em' : 0, textTransform: cap.mayus ? 'uppercase' : 'none', ...(cap.caja ? { background: cap.caja.bg || 'rgba(8,36,87,.85)', border: cap.caja.borde || '2px solid #eaf4ff', borderRadius: cap.caja.radio || 0, padding: '8px 22px' } : {}) }}>
         {g.map((p, i) => {
           const act = t >= p.t - 0.03 && t < p.t + p.d + 0.08;
           const conTrazo = cap.trazo !== '0';

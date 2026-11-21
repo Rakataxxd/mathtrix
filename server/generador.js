@@ -8,12 +8,13 @@ import { plantilla } from './plantillas.js';
 import { sintetizar, estadoVoz } from './voz.js';
 import { SISTEMA_GUION, promptGuion, TIPOS, PALETAS } from './prompts.js';
 import { DATA, uno, todos, correr, json } from './db.js';
+import { elegirPlantilla } from './recomendador.js';
 
 const FPS = 30;
-const MIN = { pregunta: 3.6, gancho: 3.4, datos: 4, formula: 3.6, paso: 2.8, resultado: 4.2, iconos: 4, fraccion: 4.2, comparacion: 4.2, grafica: 4.6, cta: 4.4 };
+const MIN = { revision: 5.5, pregunta: 3.6, gancho: 3.4, datos: 4, formula: 3.6, paso: 2.8, resultado: 4.2, iconos: 4, fraccion: 4.2, comparacion: 4.2, grafica: 4.6, cta: 4.4 };
 export const trabajos = new Map();
 
-function emitir(tr, ev) {
+export function emitir(tr, ev) {
   ev.t = Date.now() - tr.inicio;
   tr.eventos.push(ev);
   for (const f of tr.oyentes) f(ev);
@@ -69,8 +70,15 @@ function normalizar(g, formato) {
     if (e.opciones.length < 2 || !e.pregunta) return false;
     e.correcta = Math.max(0, Math.min(e.opciones.length - 1, parseInt(e.correcta) || 0));
     e.si_bien = String(e.si_bien || '¡Exacto! Bien pensado.').slice(0, 240);
-    e.si_mal = String(e.si_mal || `¡No! La correcta era: ${e.opciones[e.correcta]}.`).slice(0, 300);
+    e.si_mal = String(e.si_mal || `¡No! La correcta era: ${e.opciones[e.correcta]}.`).slice(0, 320);
+    const c = e.consecuencia;
+    e.consecuencia = c && (c.texto || typeof c === 'string') ? { emoji: String(c.emoji || '💥').slice(0, 8), texto: String(c.texto || c).slice(0, 60) } : null;
     return true;
+  }).filter((e) => {
+    if (e.tipo !== 'revision') return true;
+    e.pasos = (Array.isArray(e.pasos) ? e.pasos : []).slice(0, 6).filter((p) => p && p.texto).map((p) => ({ texto: String(p.texto).slice(0, 40), ok: p.ok !== false && p.ok !== 'false', nota: String(p.nota || '').slice(0, 50) }));
+    e.titulo = String(e.titulo || 'Tu solución').slice(0, 40);
+    return e.pasos.length >= 1;
   });
   if (esc.length < 4) throw new Error('guion con pocas escenas');
   if (esc[0].tipo !== 'gancho') esc.unshift({ tipo: 'gancho', texto: g.titulo.toUpperCase(), emoji: esc.find((e) => e.emoji)?.emoji || '🤯', narracion: g.titulo });
@@ -105,7 +113,9 @@ function sustituir(g, valores) {
   });
   for (const e of g.escenas) {
     for (const k of ['texto', 'narracion', 'expr', 'formula', 'nota', 'valor', 'unidad', 'comparacion', 'titulo', 'etiqueta', 'cantidad', 'pregunta', 'si_bien', 'si_mal']) if (e[k] != null) e[k] = sub(e[k]);
+    if (Array.isArray(e.pasos)) e.pasos = e.pasos.map((p) => ({ ...p, texto: sub(p.texto), nota: sub(p.nota) }));
     if (Array.isArray(e.opciones)) e.opciones = e.opciones.map(sub);
+    if (e.consecuencia) e.consecuencia.texto = sub(e.consecuencia.texto);
     if (Array.isArray(e.datos)) e.datos = e.datos.slice(0, 4).map((d) => ({ ...d, valor: sub(d.valor), etiqueta: sub(d.etiqueta) }));
     if (Array.isArray(e.barras)) e.barras = e.barras.slice(0, 4).map((b) => ({ ...b, etiqueta: sub(b.etiqueta), valor: sub(b.valor), num: num(sub(b.valor)) ?? 0 }));
     if (e.tipo === 'iconos') e.n = Math.max(1, Math.min(500, Math.round(num(e.cantidad) ?? 10)));
@@ -115,10 +125,23 @@ function sustituir(g, valores) {
     }
   }
   g.titulo = sub(g.titulo);
-  for (const q of g.quiz) for (const k of ['pregunta', 'explicacion']) q[k] = sub(q[k]);
+  for (const q of g.quiz) for (const k of ['pregunta', 'explicacion', 'si_fallo']) if (q[k] != null) q[k] = sub(q[k]);
   return faltan;
 }
 
+function magnitud(v, c) {
+  if (v == null || !c) return 'el resultado no cuadra';
+  const r = v / c;
+  const cerca = (x) => Math.abs(r - x) / x < 0.03;
+  if (cerca(10)) return 'te pasás 10 veces de lo real';
+  if (cerca(0.1)) return 'te quedás 10 veces corto';
+  if (cerca(2)) return 'calculás el doble de lo real';
+  if (cerca(0.5)) return 'te quedás con la mitad de lo real';
+  if (cerca(3)) return 'calculás el triple de lo real';
+  if (cerca(1.5)) return 'te pasás un 50 % de lo real';
+  const d = Math.abs(v - c);
+  return v > c ? `te pasás por ${fmt(d)}` : `te faltan ${fmt(d)}`;
+}
 function armarQuiz(g, valores, seed) {
   const R = rng(seed);
   return g.quiz.map((q, i) => {
@@ -131,7 +154,10 @@ function armarQuiz(g, valores, seed) {
       const ops = [correcto];
       for (const v of cand) { const s = pre + fmt(v) + u; if (!ops.includes(s) && v !== 0) ops.push(s); if (ops.length === 4) break; }
       const orden = ops.map((o) => [R(), o]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
-      return { pregunta: q.pregunta, opciones: orden, correcta: orden.indexOf(correcto), explicacion: (q.explicacion || '') + ' = ' + correcto, tipo: 'numerica' };
+      const fallo = q.si_fallo ? ' ' + String(q.si_fallo).replace(/^./, (m) => m.toUpperCase()) : '';
+      // "que pasaria si": cada distractor numerico trae su consecuencia (cuanto te pasas o te quedas corto)
+      const consecuencias = orden.map((o) => (o === correcto ? null : `Con ${o} ${magnitud(num(o.replace(/^Q/, '')), c)}.${fallo}`));
+      return { pregunta: q.pregunta, opciones: orden, correcta: orden.indexOf(correcto), explicacion: (q.explicacion || '') + ' = ' + correcto, tipo: 'numerica', consecuencias };
     }
     const opciones = q.opciones.slice(0, 5).map(String);
     const correcta = Math.max(0, Math.min(opciones.length - 1, parseInt(q.correcta) || 0));
@@ -282,7 +308,7 @@ async function escribirGuion(tr, ctx) {
   return { g, r, motor: 'plantilla' };
 }
 
-export function generarVideo({ usuario, leccion, formato = 'vertical', publico = true, estilo }) {
+export function generarVideo({ usuario, leccion, formato = 'vertical', publico = true, estilo, nota = '', tipo = 'normal', antes, despues }) {
   const id = randomUUID();
   const tr = { id, inicio: Date.now(), eventos: [], oyentes: new Set(), estado: 'corriendo' };
   trabajos.set(id, tr);
@@ -295,17 +321,20 @@ export function generarVideo({ usuario, leccion, formato = 'vertical', publico =
       emitir(tr, { etapa: 'perfil', msg: `Leyendo el perfil de ${usuario.nombre.split(' ')[0]}: ${[...(perfil.gustos || []).slice(0, 3), ...(perfil.idolos || []).slice(0, 2)].join(', ') || 'sin perfil'}` });
       const evitar = todos('SELECT titulo FROM videos WHERE autor_id=? ORDER BY id DESC LIMIT 8', usuario.id).map((v) => v.titulo);
       const voz = perfil.voz === 'Marta' ? 'Marta' : 'Andres';
-      estilo = estilo || perfil.estilo || 'ilustrado';
-      const { g, r, motor: motorUsado } = await escribirGuion(tr, { formato, leccion, alumno: usuario, perfil, stats, evitar, voz, estilo });
+      // plantilla visual: la elige el alumno o, si no, la que mas lo engancha (con un poco de exploracion)
+      estilo = estilo || elegirPlantilla(usuario.id, perfil, stats);
+      if (antes) { const x = await antes(tr); if (x?.leccion) leccion = x.leccion; if (x?.nota) nota = x.nota + '\n' + nota; }
+      const { g, r, motor: motorUsado } = await escribirGuion(tr, { formato, leccion, alumno: usuario, perfil, stats, evitar, voz, estilo, nota });
       emitir(tr, { etapa: 'voz', msg: `Voz ${estadoVoz.proveedor() === 'elevenlabs' ? 'ElevenLabs' : 'neural'} de ${g.escenas.length} escenas (grabada mientras Haiku escribía)…` });
       const fallos = await ponerVoz(g, voz, formato);
       if (fallos) emitir(tr, { etapa: 'aviso', msg: `${fallos} escenas sin voz (sin internet): van con subtítulos` });
       const tl = timeline(g, formato, r.valores, tr.estilo || estilo);
       const quiz = armarQuiz(g, r.valores, Date.now());
       const ms = Date.now() - tr.inicio;
-      const res = correr(`INSERT INTO videos(leccion_id, autor_id, titulo, tema, etiquetas, estilo, formato, timeline, quiz, duracion, motor, publico, verificado, ms_generacion)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, leccion.id || null, usuario.id, g.titulo, leccion.tema, JSON.stringify(g.etiquetas), g.estilo_gancho || null, formato,
-        JSON.stringify(tl), JSON.stringify(quiz), tl.duracion / FPS, motorUsado, publico ? 1 : 0, 1, ms);
+      const res = correr(`INSERT INTO videos(leccion_id, autor_id, titulo, tema, etiquetas, estilo, formato, timeline, quiz, duracion, motor, publico, verificado, ms_generacion, tipo, plantilla)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, leccion.id || null, usuario.id, g.titulo, leccion.tema, JSON.stringify(g.etiquetas), g.estilo_gancho || null, formato,
+        JSON.stringify(tl), JSON.stringify(quiz), tl.duracion / FPS, motorUsado, publico ? 1 : 0, 1, ms, tipo, tl.estilo || null);
+      try { despues?.(Number(res.lastInsertRowid)); } catch {}
       tr.estado = 'listo';
       emitir(tr, { etapa: 'listo', msg: `¡Listo en ${(ms / 1000).toFixed(1)} s!`, video_id: Number(res.lastInsertRowid), ms });
     } catch (e) {

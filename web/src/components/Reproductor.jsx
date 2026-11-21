@@ -4,19 +4,20 @@
 // - Registra TODA la interaccion (play, pausa, rebobinar, salto, fin, respuestas, latidos).
 import React, { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { Player } from '@remotion/player';
-import { Maximize2 } from 'lucide-react';
+import { Maximize2, MessageCircleQuestion } from 'lucide-react';
 import { MathtrixVideo, paletaDe } from '../video/MathtrixVideo.jsx';
 import { layoutPregunta } from '../video/escenas.jsx';
 import { estiloDe, varsEstilo } from '../video/estilos.jsx';
 import { getToken } from '../api.js';
 import { RetoFinal } from './RetoFinal.jsx';
+import { Duda } from './Duda.jsx';
 
 function enviar(eventos) {
   if (!eventos.length) return;
   fetch('/api/eventos', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', authorization: 'Bearer ' + getToken() }, body: JSON.stringify({ eventos }) }).catch(() => {});
 }
 
-export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, controles = true, estilo, onFin, estiloCaja, siguiente, retoAbierto, onReto, silenciado, onProgreso, sinPantallaCompleta }, refExt) {
+export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, controles = true, estilo, onFin, estiloCaja, siguiente, retoAbierto, onReto, silenciado, onProgreso, sinPantallaCompleta, sinBotonDuda }, refExt) {
   const ref = useRef(null);
   const caja = useRef(null);
   const tl = video.timeline;
@@ -25,14 +26,16 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
   const [elecciones, setElecciones] = useState({});
   const [pregunta, setPregunta] = useState(null);
   const [reto, setReto] = useState(false);
+  const [duda, setDuda] = useState(null);
   const elec = useRef({});
   const api = useRef({});
   const progRef = useRef(onProgreso); progRef.current = onProgreso;
   const sesion = useMemo(() => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())), [video.id]);
-  useImperativeHandle(refExt, () => Object.assign(ref.current || {}, { abrirReto: () => { try { ref.current?.pause(); } catch {} setReto(true); } }), [video.id]);
+  useImperativeHandle(refExt, () => Object.assign(ref.current || {}, { abrirReto: () => { try { ref.current?.pause(); } catch {} setReto(true); }, abrirDuda: () => abrirDudaRef.current?.() }), [video.id]);
+  const abrirDudaRef = useRef(null);
   useEffect(() => { if (retoAbierto) { try { ref.current?.pause(); } catch {} setReto(true); } }, [retoAbierto]);
   useEffect(() => { onReto?.(reto); }, [reto]);
-  useEffect(() => { setElecciones({}); elec.current = {}; setPregunta(null); setReto(false); }, [video.id]);
+  useEffect(() => { setElecciones({}); elec.current = {}; setPregunta(null); setReto(false); setDuda(null); }, [video.id]);
   const inputProps = useMemo(() => ({ tl, estilo: clave, elecciones }), [tl, clave, elecciones]);
 
   useEffect(() => {
@@ -101,6 +104,14 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
   }, [video.id]);
 
   if (!tl) return null;
+  const abrirDuda = () => {
+    const p = ref.current; if (!p) return;
+    try { p.pause(); } catch {}
+    const fr = p.getCurrentFrame();
+    setDuda({ t: fr / tl.fps, escena: tl.escenas.find((e) => fr >= e.inicio && fr < e.inicio + e.duracion) || tl.escenas.at(-1) });
+  };
+  abrirDudaRef.current = abrirDuda;
+  const seguir = () => { setDuda(null); try { ref.current?.play(); } catch {} };
   const rects = pregunta ? layoutPregunta(tl.ancho, tl.alto, Math.min(3, pregunta.opciones.length)) : [];
   const pantallaCompleta = () => { const el = caja.current; if (!document.fullscreenElement) el?.requestFullscreen?.(); else document.exitFullscreen?.(); };
   return (
@@ -114,10 +125,10 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
           fps={tl.fps}
           compositionWidth={tl.ancho}
           compositionHeight={tl.alto}
-          controls={controles && !pregunta && !reto}
+          controls={controles && !pregunta && !reto && !duda}
           autoPlay={autoPlay}
           initiallyMuted={!!silenciado}
-          clickToPlay={!pregunta && !reto}
+          clickToPlay={!pregunta && !reto && !duda}
           allowFullscreen={false}
           doubleClickToFullscreen={false}
           showPlaybackRateControl={[0.5, 0.75, 1, 1.25, 1.5]}
@@ -134,7 +145,9 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
           </div>
         )}
         {reto && <RetoFinal video={video} clave={clave} P={P} siguiente={siguiente} onCerrar={() => setReto(false)} onRepetir={() => { setReto(false); try { ref.current.seekTo(0); ref.current.play(); } catch {} }} />}
-        {!reto && !sinPantallaCompleta && <button className="mtx-fs" onClick={pantallaCompleta} aria-label="Pantalla completa"><Maximize2 size={16} /></button>}
+        {!reto && !sinPantallaCompleta && !duda && <button className="mtx-fs" onClick={pantallaCompleta} aria-label="Pantalla completa"><Maximize2 size={16} /></button>}
+        {!reto && !pregunta && !duda && !sinBotonDuda && <button className="mtx-duda-btn" onClick={abrirDuda} aria-label="Tengo una duda"><MessageCircleQuestion size={17} /><span>¿Duda?</span></button>}
+        {duda && <Duda video={video} t={duda.t} escena={duda.escena} onCerrar={() => setDuda(null)} onSeguir={seguir} />}
       </div>
     </div>
   );

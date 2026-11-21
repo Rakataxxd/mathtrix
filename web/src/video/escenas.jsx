@@ -370,10 +370,21 @@ export function Pregunta({ e, P }) {
   const VERDE = '#3bdc7a', ROJO = '#ff5b6b';
   const golpe = enRespuesta ? sp(e.q, { damping: 8 }) : 0;
   const temblor = enRespuesta && !bien ? Math.sin(fr * 2.2) * interpolate(fr, [0, 18], [18, 0], clamp) : 0;
+  const cons = enRespuesta && eleccion !== undefined && !bien && e.consecuencia ? e.consecuencia : null;
+  const sc = cons ? sp(e.q + 9, { damping: 10 }) : 0;
   return (
     <AbsoluteFill>
       <div style={{ position: 'absolute', top: v ? 150 : 60, left: 0, right: 0, textAlign: 'center' }}><Chip P={P} style={{ fontSize: v ? 36 : 30 }}>¿Qué harías vos?</Chip></div>
-      <div style={{ position: 'absolute', left: W * 0.07, right: W * 0.07, top: v ? H * 0.15 : H * 0.17, height: v ? H * 0.19 : H * 0.24, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontFamily: DISPLAY, fontWeight: 800, fontSize: v ? 70 : 64, lineHeight: 1.12, color: P.tx, opacity: sp(4), textShadow: 'var(--mtx-sombra-texto)' }}>{e.pregunta}</div>
+      <div style={{ position: 'absolute', left: W * 0.07, right: W * 0.07, top: v ? H * 0.15 : H * 0.17, height: v ? H * 0.19 : H * 0.24, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontFamily: DISPLAY, fontWeight: 800, fontSize: v ? 70 : 64, lineHeight: 1.12, color: P.tx, opacity: sp(4) * (1 - sc), textShadow: 'var(--mtx-sombra-texto)' }}>{e.pregunta}</div>
+      {cons && (
+        <div style={{ position: 'absolute', left: W * 0.06, right: W * 0.06, top: v ? H * 0.19 : H * 0.18, height: v ? H * 0.16 : H * 0.24, display: 'flex', alignItems: 'center', gap: v ? 26 : 34, padding: v ? '0 34px' : '0 44px', borderRadius: 'var(--mtx-panel-radio)', background: tono(ROJO, 0.16), border: `4px solid ${ROJO}`, boxShadow: `0 20px 60px ${ROJO}44`, opacity: sc, transform: `scale(${0.7 + sc * 0.3}) rotate(${(1 - sc) * -4}deg)` }}>
+          <div style={{ flex: 'none', fontSize: v ? 120 : 110, transform: `rotate(${Math.sin(fr / 4) * 8}deg) scale(${1 + 0.06 * Math.sin(fr / 3)})` }}><Emoji e={cons.emoji} size={v ? 130 : 120} ligero /></div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: v ? 30 : 28, letterSpacing: '.08em', color: ROJO }}>SI HACÉS ESO…</div>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: v ? 58 : 54, lineHeight: 1.08, color: P.tx }}>{cons.texto}</div>
+          </div>
+        </div>
+      )}
       {ops.map((o, i) => {
         const r = rects[i];
         const s = sp(10 + i * 6, { damping: 13 });
@@ -406,3 +417,44 @@ export function Pregunta({ e, P }) {
   );
 }
 const E_FONDO = (P) => tono(P.f1, 0.75);
+
+// ---------- REVISION: los pasos que el alumno escribio (de su foto) con ✓ / ✗ ----------
+export function Revision({ e, P }) {
+  const f = useCurrentFrame();
+  const sp = useSp();
+  const { W, H, v } = useVert();
+  const pasos = (e.pasos || []).slice(0, 6);
+  const n = Math.max(1, pasos.length);
+  const cada = Math.max(12, Math.min(30, Math.floor((e.duracion - 40) / n)));
+  const top = v ? H * 0.2 : H * 0.17, alto = v ? H * 0.56 : H * 0.7;
+  const fila = Math.min(v ? 170 : 130, (alto - 60) / n);
+  const fs = Math.min(v ? 66 : 54, fila * 0.48);
+  const VERDE = '#1f9d55', ROJO = '#e5383b';
+  const hoja = sp(2, { damping: 14 });
+  return (
+    <AbsoluteFill>
+      <div style={{ position: 'absolute', top: v ? 110 : 40, left: 0, right: 0, textAlign: 'center' }}><Chip P={P} style={{ fontSize: v ? 38 : 30 }}>📸 {e.titulo || 'Tu solución'}</Chip></div>
+      <div style={{ position: 'absolute', left: W * (v ? 0.07 : 0.16), right: W * (v ? 0.07 : 0.16), top, height: alto, borderRadius: 18, background: '#fbf8f1', boxShadow: '0 30px 70px rgba(0,0,0,.35)', overflow: 'hidden', transform: `translateY(${(1 - hoja) * 120}px) rotate(${-1.6 + (1 - hoja) * 6}deg)`, opacity: hoja }}>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: `repeating-linear-gradient(180deg, transparent 0 ${fila - 3}px, #c9dcf2 ${fila - 3}px ${fila - 1}px)`, backgroundPosition: '0 30px' }} />
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 86, width: 3, background: '#f2a0a8' }} />
+        {pasos.map((p, i) => {
+          const d = 10 + i * cada;
+          const escribe = interpolate(f, [d, d + 12], [0, 100], clamp);
+          const sello = sp(d + 10, { damping: 9 });
+          const raya = interpolate(f, [d + 14, d + 22], [0, 100], clamp);
+          const pulso = !p.ok && f > 10 + n * cada ? 0.5 + 0.5 * Math.sin(f / 5) : 0;
+          return (
+            <div key={i} style={{ position: 'absolute', left: 110, right: 40, top: 30 + i * fila, height: fila, display: 'flex', alignItems: 'center', gap: 24 }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "'Kalam'", fontWeight: 700, fontSize: fs, color: '#1d2b5a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', clipPath: `inset(0 ${100 - escribe}% 0 0)`, textShadow: pulso ? `0 0 ${18 * pulso}px rgba(229,56,59,.6)` : 'none' }}>{p.texto}</div>
+                {!p.ok && <div style={{ position: 'absolute', left: -6, top: '52%', height: 6, width: `${raya}%`, background: ROJO, borderRadius: 4, transform: 'rotate(-2deg)' }} />}
+                {p.nota && <div style={{ fontFamily: FUENTE, fontWeight: 700, fontSize: fs * 0.42, color: p.ok ? VERDE : ROJO, opacity: sello, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.ok ? '✓ ' : '✗ '}{p.nota}</div>}
+              </div>
+              <div style={{ flex: 'none', width: fila * 0.62, height: fila * 0.62, borderRadius: '50%', display: 'grid', placeItems: 'center', background: p.ok ? VERDE : ROJO, color: '#fff', fontFamily: DISPLAY, fontWeight: 900, fontSize: fila * 0.36, transform: `scale(${sello}) rotate(${(1 - sello) * -40}deg)`, boxShadow: `0 8px 20px ${p.ok ? 'rgba(31,157,85,.4)' : 'rgba(229,56,59,.45)'}` }}>{p.ok ? '✓' : '✗'}</div>
+            </div>
+          );
+        })}
+      </div>
+    </AbsoluteFill>
+  );
+}

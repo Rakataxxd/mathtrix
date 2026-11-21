@@ -5,10 +5,11 @@ import { randomBytes, scryptSync, timingSafeEqual, randomUUID } from 'node:crypt
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { db, uno, todos, correr, json, DATA, RAIZ } from './db.js';
-import { generarVideo, suscribir, trabajos } from './generador.js';
+import { generarVideo, suscribir, trabajos, emitir } from './generador.js';
 import { precalentar } from './motor.js';
-import { claude, extraerJSON } from './ia.js';
-import { SISTEMA_CLASE, promptClase } from './prompts.js';
+import { claude, ollama, extraerJSON } from './ia.js';
+import { SISTEMA_CLASE, promptClase, SISTEMA_DUDA, promptDuda, SISTEMA_REVISION, notaRevision, NOTA_BASE } from './prompts.js';
+import { puntosDe, ranking } from './puntos.js';
 import { recomendar, actualizarStats } from './recomendador.js';
 import { analiticaLeccion, analiticaCurso } from './analitica.js';
 
@@ -56,8 +57,8 @@ app.post('/api/perfil', req(), (r, s) => {
 const codigo = () => 'MTX-' + randomBytes(3).toString('hex').toUpperCase().slice(0, 4);
 app.get('/api/cursos', req(), (r, s) => {
   const filas = r.u.rol === 'profesor'
-    ? todos(`SELECT c.*, (SELECT COUNT(*) FROM inscripciones i WHERE i.curso_id=c.id) alumnos, (SELECT COUNT(*) FROM lecciones l WHERE l.curso_id=c.id) clases FROM cursos c WHERE profesor_id=? ORDER BY id DESC`, r.u.id)
-    : todos(`SELECT c.*, u.nombre profesor, (SELECT COUNT(*) FROM lecciones l WHERE l.curso_id=c.id) clases FROM inscripciones i JOIN cursos c ON c.id=i.curso_id JOIN usuarios u ON u.id=c.profesor_id WHERE i.alumno_id=? ORDER BY i.creado DESC`, r.u.id);
+    ? todos(`SELECT c.*, (SELECT COUNT(*) FROM inscripciones i WHERE i.curso_id=c.id) alumnos, (SELECT COUNT(*) FROM lecciones l WHERE l.curso_id=c.id) clases, (SELECT COUNT(*) FROM lecciones l WHERE l.curso_id=c.id AND l.prompt IS NOT NULL) listas, (SELECT COUNT(*) FROM videos v JOIN lecciones l ON l.id=v.leccion_id WHERE l.curso_id=c.id) videos FROM cursos c WHERE profesor_id=? ORDER BY id DESC`, r.u.id)
+    : todos(`SELECT c.*, u.nombre profesor, (SELECT COUNT(*) FROM lecciones l WHERE l.curso_id=c.id) clases, (SELECT COUNT(DISTINCT v.leccion_id) FROM intentos t JOIN videos v ON v.id=t.video_id JOIN lecciones l2 ON l2.id=v.leccion_id WHERE t.usuario_id=i.alumno_id AND l2.curso_id=c.id) hechas FROM inscripciones i JOIN cursos c ON c.id=i.curso_id JOIN usuarios u ON u.id=c.profesor_id WHERE i.alumno_id=? ORDER BY i.creado DESC`, r.u.id);
   s.json(filas.map((c) => (r.u.rol === 'alumno' ? { ...c, cnb: undefined } : c)));
 });
 app.post('/api/cursos', req('profesor'), (r, s) => {
@@ -167,7 +168,7 @@ app.post('/api/lecciones/:id/escanear', req('profesor'), async (r, s) => {
 function vRes(v) {
   const tl = typeof v.timeline === 'string' ? json(v.timeline, {}) : v.timeline;
   const g = tl?.escenas?.[0] || {};
-  return { id: v.id, titulo: v.titulo, formato: v.formato, estilo: tl?.estilo || 'ilustrado', creado: v.creado, duracion: v.duracion, vistas: v.vistas, tema: v.tema, autor: v.autor, autor_color: v.autor_color,
+  return { id: v.id, titulo: v.titulo, formato: v.formato, tipo: v.tipo || 'normal', estilo: tl?.estilo || 'ilustrado', creado: v.creado, duracion: v.duracion, vistas: v.vistas, tema: v.tema, autor: v.autor, autor_color: v.autor_color,
     likes: v.likes, etiquetas: json(v.etiquetas, []), motivo: v.motivo, poster: { paleta: tl?.paleta, emoji: tl?.emoji, texto: g.texto, extras: g.extras, estilo: tl?.estilo || 'ilustrado' } };
 }
 const SELECT_V = `SELECT v.*, u.nombre autor, u.color autor_color, (SELECT COUNT(*) FROM likes l WHERE l.video_id=v.id AND l.valor=1) likes FROM videos v LEFT JOIN usuarios u ON u.id=v.autor_id`;
@@ -215,7 +216,8 @@ app.post('/api/videos/:id/quiz/revisar', req(), (r, s) => {
   const v = uno('SELECT quiz FROM videos WHERE id=?', r.params.id);
   const q = json(v?.quiz, [])[+r.body?.i];
   if (!q) return s.status(404).json({ error: 'Pregunta no encontrada' });
-  s.json({ ok: r.body?.eleccion === q.correcta, correcta: q.correcta, explicacion: q.explicacion });
+  const ok = r.body?.eleccion === q.correcta;
+  s.json({ ok, correcta: q.correcta, explicacion: q.explicacion, consecuencia: ok ? null : q.consecuencias?.[r.body?.eleccion] || null });
 });
 app.post('/api/videos/:id/quiz', req(), (r, s) => {
   const v = uno('SELECT * FROM videos WHERE id=?', r.params.id);
@@ -227,7 +229,9 @@ app.post('/api/videos/:id/quiz', req(), (r, s) => {
   const aciertos = detalle.filter((d) => d.ok).length;
   correr('INSERT INTO intentos(video_id,usuario_id,respuestas,aciertos,total,puntaje,ms) VALUES(?,?,?,?,?,?,?)', v.id, r.u.id, JSON.stringify(detalle), aciertos, quiz.length, aciertos / (quiz.length || 1), tiempos.reduce((a, b) => a + (b || 0), 0));
   actualizarStats(r.u.id);
-  s.json({ aciertos, total: quiz.length, detalle, explicaciones: quiz.map((q) => ({ correcta: q.correcta, explicacion: q.explicacion })) });
+  // Kumon: acierta pero tarda mucho -> conviene practicar una parecida antes de subir de nivel
+  const lentas = detalle.map((d, i) => (d.ok && d.ms > 25000 ? i : -1)).filter((i) => i >= 0);
+  s.json({ aciertos, total: quiz.length, detalle, lentas, puntos: puntosDe(r.u.id), explicaciones: quiz.map((q) => ({ correcta: q.correcta, explicacion: q.explicacion })) });
 });
 
 // eventos del reproductor: play, pausa, salto, rebobinar, fin, latido, pestaña oculta, velocidad
@@ -241,16 +245,18 @@ app.post('/api/eventos', req(), (r, s) => {
 
 // ---------- generacion ----------
 const pre = new Map(); // pre-generacion: usuario:leccion:formato -> trabajo
-const ESTILOS = ['ilustrado', 'tiza', 'blueprint', 'manim', 'cuaderno', 'neon'];
+const ESTILOS = ['ilustrado', 'tiza', 'blueprint', 'manim', 'cuaderno', 'neon', 'vector', 'cinetica', 'riso'];
 const estiloOk = (x) => (ESTILOS.includes(x) ? x : undefined);
-function lanzar(u, l, formato, estilo) {
-  return generarVideo({ usuario: u, leccion: { id: l.id, titulo: l.titulo, tema: l.tema, objetivo: l.objetivo, ejercicio: l.ejercicio, prompt: l.prompt }, formato, estilo });
+function lanzar(u, l, formato, estilo, base) {
+  return generarVideo({ usuario: u, leccion: { id: l.id, titulo: l.titulo, tema: l.tema, objetivo: l.objetivo, ejercicio: l.ejercicio, prompt: l.prompt }, formato, estilo,
+    ...(base ? { nota: NOTA_BASE, tipo: 'base' } : {}) });
 }
 app.post('/api/lecciones/:id/generar', req(), (r, s) => {
   const l = leccionDe(r.u, r.params.id);
   if (!l) return s.status(404).json({ error: 'Clase no encontrada' });
   const formato = r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical';
   const estilo = estiloOk(r.body?.estilo);
+  if (r.body?.base) return s.json({ trabajo: lanzar(r.u, l, formato, estilo, true) });
   const k = `${r.u.id}:${l.id}:${formato}`;
   const p = pre.get(k);
   pre.delete(k);
@@ -270,7 +276,8 @@ app.post('/api/lecciones/:id/pregenerar', req('alumno'), (r, s) => {
 app.post('/api/generar-libre', req(), (r, s) => {
   const tema = String(r.body?.tema || '').slice(0, 120);
   if (!tema) return s.status(400).json({ error: 'Escribí un tema' });
-  s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { titulo: tema, tema, objetivo: r.body?.detalle || '' }, formato: r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical', estilo: estiloOk(r.body?.estilo) }) });
+  s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { titulo: tema, tema, objetivo: r.body?.detalle || '' }, formato: r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical', estilo: estiloOk(r.body?.estilo),
+    ...(r.body?.base ? { nota: NOTA_BASE, tipo: 'base' } : {}) }) });
 });
 app.get('/api/trabajos/:id', (r, s) => {
   s.set({ 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
@@ -291,7 +298,8 @@ app.get('/api/aprender', req(), (r, s) => {
   const dias = todos(`SELECT DISTINCT date(creado) d FROM eventos WHERE usuario_id=? ORDER BY d DESC LIMIT 60`, r.u.id).map((x) => x.d);
   let racha = 0; const hoy = new Date();
   for (let i = 0; i < 60; i++) { const d = new Date(hoy - i * 864e5).toISOString().slice(0, 10); if (dias.includes(d)) racha++; else if (i > 0) break; }
-  s.json({ stats: st, historial, pendientes, vistos, racha, xp: historial.reduce((a, h) => a + h.aciertos * 50, 0) + vistos * 20 });
+  const pts = puntosDe(r.u.id);
+  s.json({ stats: st, historial, pendientes, vistos, racha: pts.racha, xp: pts.xp, puntos: pts });
 });
 app.get('/api/lecciones/:id/analitica', req('profesor'), (r, s) => {
   const l = leccionDe(r.u, r.params.id);
@@ -303,6 +311,84 @@ app.get('/api/cursos/:id/analitica', req('profesor'), (r, s) => {
   if (!c) return s.status(404).json({ error: 'Curso no encontrado' });
   s.json(analiticaCurso(c));
 });
+
+// ---------- puntos y ranking ----------
+app.get('/api/puntos', req(), (r, s) => s.json(puntosDe(r.u.id)));
+app.get('/api/ranking', req(), (r, s) => s.json(ranking(r.u, r.query.alcance === 'global' ? 'global' : 'clase', r.query.periodo === 'todo' ? 'todo' : 'semana')));
+
+// ---------- tutor dentro del video: el alumno pausa, escribe su duda y la IA responde con el contexto del video ----------
+app.post('/api/videos/:id/duda', req(), async (r, s) => {
+  const v = uno('SELECT * FROM videos WHERE id=?', r.params.id);
+  if (!v) return s.status(404).json({ error: 'Video no encontrado' });
+  const pregunta = String(r.body?.pregunta || '').trim().slice(0, 500);
+  if (!pregunta) return s.status(400).json({ error: 'Escribí tu duda' });
+  const tl = json(v.timeline, {});
+  const t = Math.max(0, +r.body?.t || 0);
+  const fr = t * (tl.fps || 30);
+  const esc = (tl.escenas || []).find((e) => fr >= e.inicio && fr < e.inicio + e.duracion) || tl.escenas?.at(-1);
+  const perfil = json(uno('SELECT respuestas FROM perfiles WHERE usuario_id=?', r.u.id)?.respuestas, {});
+  const leccion = v.leccion_id ? uno('SELECT prompt FROM lecciones WHERE id=?', v.leccion_id) : null;
+  const historial = Array.isArray(r.body?.historial) ? r.body.historial : [];
+  const prompt = promptDuda({ video: v, tl, t, perfil, leccion, historial, pregunta });
+  s.set({ 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-cache', 'x-accel-buffering': 'no' });
+  s.flushHeaders?.();
+  let enviado = 0, cerrado = false;
+  r.on('close', () => { cerrado = true; });
+  const onTexto = (txt) => { if (cerrado) return; const d = txt.slice(enviado); if (d) { s.write(d); enviado = txt.length; } };
+  let respuesta = '';
+  try {
+    respuesta = await claude({ sistema: SISTEMA_DUDA, prompt, onTexto, timeoutMs: 60000 });
+  } catch {
+    try { respuesta = await ollama({ sistema: SISTEMA_DUDA, prompt, onTexto, timeoutMs: 60000 }); } catch {}
+  }
+  if (!respuesta) respuesta = 'Uy, se me fue la señal. Volvé a ver esta parte y preguntame de nuevo en un momento.';
+  if (enviado < respuesta.length) s.write(respuesta.slice(enviado));
+  s.end();
+  correr('INSERT INTO dudas(usuario_id,video_id,t,escena,escena_tipo,pregunta,respuesta) VALUES(?,?,?,?,?,?,?)', r.u.id, v.id, t, esc?.i ?? null, esc?.tipo ?? null, pregunta, respuesta);
+  correr('INSERT INTO eventos(usuario_id,video_id,tipo,t,escena,escena_tipo,extra) VALUES(?,?,?,?,?,?,?)', r.u.id, v.id, 'duda', t, esc?.i ?? null, esc?.tipo ?? null, JSON.stringify({ pregunta: pregunta.slice(0, 160) }));
+});
+app.get('/api/videos/:id/dudas', req(), (r, s) => s.json(todos('SELECT id, t, pregunta, respuesta, creado FROM dudas WHERE video_id=? AND usuario_id=? ORDER BY id', r.params.id, r.u.id)));
+
+// ---------- revisar mi ejercicio: foto o archivo -> analisis paso a paso -> video desde donde se quedo ----------
+app.post('/api/revisar', req(), subir.single('foto'), async (r, s) => {
+  const f = r.file;
+  if (!f) return s.status(400).json({ error: 'Subí una foto o archivo de tu ejercicio' });
+  const ext = extname(f.originalname).toLowerCase() || '.jpg';
+  const imagen = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.heic'].includes(ext);
+  if (!imagen && !['.pdf', '.txt', '.md'].includes(ext)) return s.status(400).json({ error: 'Formato no soportado: usá foto (JPG/PNG) o PDF' });
+  const nombre = 'rev-' + f.filename + (ext === '.heic' ? '.jpg' : ext);
+  writeFileSync(join(DATA, 'uploads', nombre), readFileSync(f.path));
+  const l = r.body?.leccion_id ? leccionDe(r.u, r.body.leccion_id) : null;
+  const nota = String(r.body?.nota || '').slice(0, 400);
+  const formato = r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical';
+  const contexto = l ? `Clase: ${l.titulo} (${l.tema}).` : '';
+  let revId = null;
+  const antes = async (tr) => {
+    const emit = (ev) => emitir(tr, ev);
+    emit({ etapa: 'foto', msg: 'Leyendo tu ejercicio paso por paso…' });
+    let txt;
+    if (imagen) {
+      txt = await claude({ sistema: SISTEMA_REVISION, herramientas: 'Read', cwd: join(DATA, 'uploads'), timeoutMs: 120000,
+        prompt: `Leé la imagen ./${nombre} (es el trabajo de un alumno). ${contexto} ${nota ? 'El alumno dice: ' + nota : ''}\nRespondé solo el JSON.` });
+    } else {
+      const crudo = ext === '.pdf' ? (await (await import('pdf-parse/lib/pdf-parse.js')).default(readFileSync(f.path))).text : readFileSync(f.path, 'utf8');
+      txt = await claude({ sistema: SISTEMA_REVISION, timeoutMs: 90000, prompt: `Trabajo del alumno (transcrito de su archivo):\n${crudo.slice(0, 6000)}\n${contexto} ${nota ? 'El alumno dice: ' + nota : ''}\nRespondé solo el JSON.` });
+    }
+    const a = extraerJSON(txt);
+    if (!a || a.estado === 'ilegible' || !Array.isArray(a.pasos) || !a.pasos.length) throw new Error('No pude leer matemática en la foto. Probá con más luz y la hoja derecha.');
+    a.pasos = a.pasos.slice(0, 6);
+    revId = Number(correr('INSERT INTO revisiones(usuario_id,leccion_id,archivo,analisis) VALUES(?,?,?,?)', r.u.id, l?.id ?? null, nombre, JSON.stringify(a)).lastInsertRowid);
+    emit({ etapa: 'analisis', analisis: a, msg: a.estado === 'correcto' ? '¡Todo bien! Armo un video para subirte de nivel…' : a.estado === 'incompleto' ? 'Te falta un poco: armo el video desde donde te quedaste…' : 'Encontré dónde se torció: armo tu video de corrección…' });
+    return {
+      leccion: { id: l?.id, titulo: 'Revisión: ' + String(a.problema || 'mi ejercicio').slice(0, 60), tema: a.tema || l?.tema || 'Revisión de ejercicio', objetivo: a.siguiente || '', prompt: l?.prompt, ejercicio: a.problema },
+      nota: notaRevision(a, nota),
+    };
+  };
+  const despues = (vid) => { if (revId) correr('UPDATE revisiones SET video_id=? WHERE id=?', vid, revId); };
+  s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { id: l?.id, titulo: 'Revisión', tema: l?.tema || 'Revisión' }, formato, publico: false, tipo: 'revision', estilo: estiloOk(r.body?.estilo), antes, despues }) });
+});
+app.get('/api/revisiones', req(), (r, s) => s.json(todos('SELECT id, leccion_id, analisis, video_id, creado FROM revisiones WHERE usuario_id=? ORDER BY id DESC LIMIT 20', r.u.id).map((x) => ({ ...x, analisis: json(x.analisis) }))));
+
 
 // ---------- estaticos ----------
 app.use('/media', express.static(join(DATA, 'media'), { maxAge: '7d', immutable: true }));

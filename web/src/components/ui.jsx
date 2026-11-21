@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Home, Zap, School, Search, LogOut, Plus, UserRound, GraduationCap, Sparkles, Smartphone, RectangleHorizontal, X } from 'lucide-react';
-import { useSesion, api, hace, dur, vistas, inicial } from '../api.js';
+import { Home, Zap, School, Search, LogOut, Plus, UserRound, GraduationCap, Sparkles, Smartphone, RectangleHorizontal, X, Sun, Moon, Camera, Trophy } from 'lucide-react';
+import { useSesion, api, hace, dur, vistas, inicial, getTema, setTema } from '../api.js';
 import { PALETAS, codEmoji } from '../video/fx.jsx';
 import { ESTILOS, FiltrosEstilo, estiloDe, filtroEmoji } from '../video/estilos.jsx';
 import { Generador } from './Generador.jsx';
+import { RevisarFoto } from './RevisarFoto.jsx';
 
 export function Logo() {
   return <Link to="/" className="logo"><span className="ico">[π]</span><span>mathtrix</span></Link>;
@@ -25,6 +26,7 @@ function MenuUsuario() {
         <div className="menu-pop" onClick={() => setAbierto(false)}>
           <div className="yo"><b style={{ fontSize: 14.5 }}>{usuario.nombre}</b><div className="dim" style={{ fontSize: 13, marginTop: 2 }}>{usuario.rol === 'profesor' ? 'Profesor' : 'Alumno'} · {usuario.email}</div></div>
           {usuario.rol === 'alumno' && <Link to="/perfil"><UserRound size={17} />Mis gustos y estilo</Link>}
+          <BotonTema />
           <button onClick={salir}><LogOut size={17} />Salir</button>
         </div>
       )}
@@ -32,9 +34,18 @@ function MenuUsuario() {
   );
 }
 
-/** Crear un video de cualquier tema: un campo y un botón. */
+/** Modo claro (por defecto) u oscuro; se recuerda en este navegador. */
+export function BotonTema({ boton }) {
+  const [t, setT] = useState(getTema());
+  const cambiar = (e) => { e?.stopPropagation?.(); const n = t === 'oscuro' ? 'claro' : 'oscuro'; setTema(n); setT(n); };
+  if (boton) return <button className="btn chico ico" onClick={cambiar} aria-label={t === 'oscuro' ? 'Modo claro' : 'Modo oscuro'}>{t === 'oscuro' ? <Sun size={16} /> : <Moon size={16} />}</button>;
+  return <button onClick={cambiar}>{t === 'oscuro' ? <Sun size={17} /> : <Moon size={17} />}{t === 'oscuro' ? 'Modo claro' : 'Modo oscuro'}</button>;
+}
+
+/** Crear: un tema (un campo y un botón) o revisar mi ejercicio (foto). */
 export function CrearVideo({ onCerrar }) {
   const { perfil } = useSesion();
+  const [modo, setModo] = useState('tema');
   const [tema, setTema] = useState('');
   const [formato, setFormato] = useState('vertical');
   const [trabajo, setTrabajo] = useState(null);
@@ -47,7 +58,12 @@ export function CrearVideo({ onCerrar }) {
   return (
     <div className="modal" onClick={(e) => e.target === e.currentTarget && onCerrar()}>
       <form className="caja" onSubmit={enviar}>
-        <div className="entre"><h2>¿Qué querés aprender?</h2><button type="button" className="btn chico ico fant" onClick={onCerrar} aria-label="Cerrar"><X size={18} /></button></div>
+        <div className="entre"><h2>{modo === 'tema' ? '¿Qué querés aprender?' : 'Revisar mi ejercicio'}</h2><button type="button" className="btn chico ico fant" onClick={onCerrar} aria-label="Cerrar"><X size={18} /></button></div>
+        <div className="seg" style={{ marginTop: 14 }}>
+          <button type="button" className={modo === 'tema' ? 'on' : ''} onClick={() => setModo('tema')}><Sparkles size={15} />Un tema</button>
+          <button type="button" className={modo === 'foto' ? 'on' : ''} onClick={() => setModo('foto')}><Camera size={15} />Mi ejercicio</button>
+        </div>
+        {modo === 'foto' ? <div style={{ marginTop: 14 }}><RevisarFoto onTrabajo={setTrabajo} /></div> : <>
         <input autoFocus className="input" style={{ marginTop: 16, height: 52, fontSize: 16 }} placeholder="Ej. probabilidad de ganar la lotería" value={tema} onChange={(e) => setTema(e.target.value)} />
         <div className="entre" style={{ marginTop: 14 }}>
           <div className="seg">
@@ -55,7 +71,7 @@ export function CrearVideo({ onCerrar }) {
             <button type="button" className={formato === 'horizontal' ? 'on' : ''} onClick={() => setFormato('horizontal')}><RectangleHorizontal size={15} />Video</button>
           </div>
           <button className="btn lima" disabled={!tema.trim()}><Sparkles size={16} />Crear</button>
-        </div>
+        </div></>}
         {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
       </form>
     </div>
@@ -72,7 +88,7 @@ export function Layout({ children }) {
     { to: '/', ico: Home, txt: 'Inicio', end: true },
     { to: '/shorts', ico: Zap, txt: 'Shorts' },
     { to: '/clases', ico: School, txt: 'Clases' },
-    { to: '/aprender', ico: GraduationCap, txt: prof ? 'Alumnos' : 'Tú' },
+    { to: '/aprender', ico: prof ? GraduationCap : Trophy, txt: prof ? 'Ranking' : 'Progreso' },
   ];
   return (
     <>
@@ -112,9 +128,12 @@ const FONDO_POSTER = {
   blueprint: (P) => `linear-gradient(rgba(234,244,255,.08) 1px, transparent 1px) 0 0/14px 14px, linear-gradient(90deg, rgba(234,244,255,.08) 1px, transparent 1px) 0 0/14px 14px, radial-gradient(120% 90% at 50% 25%, ${P.f2}, ${P.f1} 80%)`,
   manim: () => '#000',
   cuaderno: () => 'repeating-linear-gradient(180deg, #fbf8f1 0 17px, #c9dcf2 17px 18px)',
+  vector: (P) => `radial-gradient(60% 50% at 85% 10%, #2EC4F1 0 28%, transparent 29%), radial-gradient(140% 90% at 75% 0%, #2B1772, ${P.f2} 45%, ${P.f1} 85%)`,
+  cinetica: () => '#0a0a0a',
+  riso: (P) => `radial-gradient(circle, #FF48B0 38%, transparent 40%) 0 0/12px 12px, ${P.f1}`,
   neon: (P) => `linear-gradient(180deg, ${P.f1}, ${P.f2} 60%, #000)`,
 };
-const FUENTE_POSTER = { tiza: "'Cabin Sketch'", blueprint: "'Space Grotesk'", manim: "'STIX Two Text'", cuaderno: "'Kalam'", neon: "'Anton'" };
+const FUENTE_POSTER = { tiza: "'Cabin Sketch'", blueprint: "'Space Grotesk'", manim: "'STIX Two Text'", cuaderno: "'Kalam'", neon: "'Anton'", vector: "'Baloo 2'", cinetica: "'Archivo Black'", riso: "'Archivo Black'" };
 export function Poster({ v, vert }) {
   const est = estiloDe(v.poster?.estilo || v.estilo);
   const E = ESTILOS[est];

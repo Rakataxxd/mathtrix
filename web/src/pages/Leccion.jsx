@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { Upload, ScanLine, Save, Sparkles, BarChart3, FileText, Smartphone, RectangleHorizontal, Lightbulb, AlertTriangle, Users, Clock, Target, PauseCircle, Rewind, BadgeCheck, Play } from 'lucide-react';
+import { Upload, ScanLine, Save, Sparkles, BarChart3, FileText, Smartphone, RectangleHorizontal, Lightbulb, AlertTriangle, Users, Clock, Target, PauseCircle, Rewind, BadgeCheck, Play, Camera, MessageCircleQuestion, LifeBuoy } from 'lucide-react';
 import { api, useSesion, hace } from '../api.js';
 import { Avatar, VideoCard, Poster } from '../components/ui.jsx';
 import { Generador, useTrabajo, Progreso } from '../components/Generador.jsx';
 import { SelectorEstilo } from '../components/SelectorEstilo.jsx';
+import { ModalRevisar } from '../components/RevisarFoto.jsx';
 
 export function Leccion() {
   const { usuario } = useSesion();
@@ -33,7 +34,8 @@ function LeccionAlumno() {
   }, [id]);
   const st = useTrabajo(trabajo);
   useEffect(() => { if (st.listo) setTimeout(() => nav('/ver/' + st.listo.video_id + '?nuevo=1'), 600); }, [st.listo]);
-  const otro = async (formato) => { try { const d = await api(`/lecciones/${id}/generar`, { cuerpo: { formato } }); setModal(d.trabajo); } catch (x) { setErr(x.message); } };
+  const otro = async (formato, base) => { try { const d = await api(`/lecciones/${id}/generar`, { cuerpo: { formato, base } }); setModal(d.trabajo); } catch (x) { setErr(x.message); } };
+  const [foto, setFoto] = useState(false);
   if (err) return <div className="vacio">{err}</div>;
   if (!l) return <div className="vacio">Cargando…</div>;
   const ultimo = mios?.[0];
@@ -54,12 +56,19 @@ function LeccionAlumno() {
                 <Link to={'/ver/' + ultimo.id} className="btn lima grande"><Play size={17} fill="#000" />Ver</Link>
                 <button className="btn" onClick={() => otro('vertical')}><Sparkles size={16} />Otro gancho</button>
                 <button className="btn fant" onClick={() => otro('horizontal')}><RectangleHorizontal size={16} />Versión larga</button>
+                <button className="btn fant" onClick={() => otro('vertical', true)}><LifeBuoy size={16} />Más básico</button>
               </div>
             </div>
           </div>
         )}
         {!trabajo && mios && !mios.length && <div className="dim">Preparando…</div>}
       </div>
+      <button className="card revisar-cta" onClick={() => setFoto(true)}>
+        <div className="duda-ico" style={{ width: 44, height: 44, borderRadius: 14 }}><Camera size={20} /></div>
+        <div style={{ flex: 1, textAlign: 'left' }}><b style={{ fontSize: 15.5 }}>¿Te trabaste resolviendo?</b><div className="muted" style={{ fontSize: 13.5, marginTop: 2 }}>Tomale foto a tu hoja: te digo qué está bien, dónde se torció y te hago el video desde ahí.</div></div>
+        <span className="btn chico lima">Subir foto</span>
+      </button>
+      {foto && <ModalRevisar leccionId={id} onCerrar={() => setFoto(false)} />}
       {modal && <Generador trabajo={modal} onCerrar={() => setModal(null)} />}
     </div>
   );
@@ -226,6 +235,21 @@ function Analitica({ id }) {
           {!a.insights.length && <div className="dim">Todavía no hay suficiente data. Aparece apenas los alumnos vean sus videos.</div>}
         </div>
       </div>
+      {a.dudas?.length > 0 && (
+        <div className="card">
+          <h2 style={{ fontSize: 18 }}><MessageCircleQuestion size={18} color="var(--cian)" style={{ verticalAlign: -3 }} /> Dudas que escribieron al pausar <span className="dim" style={{ fontWeight: 500, fontSize: 14 }}>· {a.dudas.length}</span></h2>
+          <div className="dim" style={{ fontSize: 13, margin: '4px 0 12px' }}>El tutor ya les respondió con el contexto del video. Úsalas para saber qué explicar mejor en clase.</div>
+          <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+            {a.dudas.map((x) => (
+              <div key={x.id} className="duda-item">
+                <div className="entre"><span className="q">“{x.pregunta}”</span><span className="badge">{x.nombre.split(' ')[0]} · {Math.floor(x.t / 60)}:{String(Math.floor(x.t % 60)).padStart(2, '0')}</span></div>
+                <div className="r">{x.respuesta}</div>
+              </div>
+            ))}
+          </div>
+          {a.reflexion && (a.reflexion.domino + a.reflexion.mas_o_menos + a.reflexion.perdido) > 0 && <div className="fila" style={{ marginTop: 12, gap: 8, flexWrap: 'wrap' }}><span className="dim" style={{ fontSize: 13 }}>Al terminar dijeron:</span><span className="badge lima">💪 {a.reflexion.domino} lo dominan</span><span className="badge oro">🤔 {a.reflexion.mas_o_menos} más o menos</span><span className="badge rojo">😵 {a.reflexion.perdido} se perdieron</span></div>}
+        </div>
+      )}
       <div className="dos">
         <div className="card"><h2 style={{ fontSize: 18 }}>¿Hasta dónde ven?</h2><div className="dim" style={{ fontSize: 13, margin: '4px 0 10px' }}>% de reproducciones que llegan a cada punto del video</div><Retencion datos={a.retencion} /></div>
         <div className="card">

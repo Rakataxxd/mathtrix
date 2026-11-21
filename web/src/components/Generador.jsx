@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Sparkles } from 'lucide-react';
 
-const PASOS = { perfil: [6, 'Leyendo tus gustos'], guion: [12, 'Escribiendo tu gancho'], calculo: [70, 'Calculando cada paso exacto'], verificacion: [78, 'Verificando el resultado'], voz: [88, 'Grabando la voz'], listo: [100, '¡Listo!'] };
+const PASOS = { foto: [5, 'Leyendo tu ejercicio paso por paso'], analisis: [10, 'Armando tu video de corrección'], perfil: [6, 'Leyendo tus gustos'], guion: [12, 'Escribiendo tu gancho'], calculo: [70, 'Calculando cada paso exacto'], verificacion: [78, 'Verificando el resultado'], voz: [88, 'Grabando la voz'], listo: [100, '¡Listo!'] };
 
 export function useTrabajo(trabajo) {
   const [st, setSt] = useState({ p: 3, paso: 'Preparando…', titulo: null, cola: '', error: null, listo: null });
@@ -17,6 +17,8 @@ export function useTrabajo(trabajo) {
         if (ev.titulo) n.titulo = ev.titulo;
         if (ev.etapa === 'escribiendo') { n.cola = ev.cola || ''; n.p = Math.max(s.p, Math.min(66, 12 + (ev.chars || 0) / 70)); }
         else if (PASOS[ev.etapa]) { n.p = Math.max(s.p, PASOS[ev.etapa][0]); n.paso = PASOS[ev.etapa][1]; }
+        if (ev.analisis) n.analisis = ev.analisis;
+        if (ev.etapa === 'analisis' && ev.msg) n.paso = ev.msg;
         if (ev.etapa === 'error') n.error = ev.msg;
         if (ev.etapa === 'listo') n.listo = ev;
         return n;
@@ -40,7 +42,26 @@ export function Progreso({ st, t0 }) {
       </div>
       <div className="gen-barra"><div style={{ width: `${st.p}%` }} /></div>
       <div className="gen-paso">{st.error ? <span className="error">No se pudo: {st.error}</span> : <><Sparkles size={13} style={{ verticalAlign: -2, marginRight: 6 }} />{st.paso}</>}</div>
-      {!st.listo && !st.error && st.cola && <div className="gen-texto">{st.cola}</div>}
+      {st.analisis && <Analisis a={st.analisis} />}
+      {!st.listo && !st.error && st.cola && !st.analisis && <div className="gen-texto">{st.cola}</div>}
+    </div>
+  );
+}
+
+/** Lo que la IA vio en la foto del alumno: cada paso con ✓ / ✗ (aparece antes que el video). */
+export function Analisis({ a }) {
+  return (
+    <div className="analisis">
+      <div className="dim" style={{ fontSize: 12.5, fontWeight: 600 }}>LO QUE VI EN TU HOJA</div>
+      <div className="analisis-prob">{a.problema}</div>
+      {(a.pasos || []).map((p, i) => (
+        <div key={i} className={'analisis-paso ' + (p.ok ? 'ok' : 'mal')}>
+          <span className="analisis-marca">{p.ok ? '✓' : '✗'}</span>
+          <span className="mono">{p.texto}</span>
+          {p.nota && <small>{p.nota}</small>}
+        </div>
+      ))}
+      {a.resumen && <div className="analisis-res">{a.resumen}</div>}
     </div>
   );
 }
