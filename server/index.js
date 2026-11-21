@@ -294,11 +294,15 @@ app.use('/media', express.static(join(DATA, 'media'), { maxAge: '7d', immutable:
 app.get('/emoji/:cod', async (r, s) => {
   const cod = String(r.params.cod).replace(/[^0-9a-f_]/gi, '').toLowerCase().slice(0, 60);
   const archivo = join(DATA, 'media', 'emoji', cod + '.webp');
-  if (existsSync(archivo)) return s.set('cache-control', 'public, max-age=604800').type('image/webp').send(readFileSync(archivo));
-  for (const c of [cod, cod.replace(/_fe0f/g, '')]) {
+  const svg = archivo.replace(/\.webp$/, '.svg');
+  s.set('cache-control', 'public, max-age=604800');
+  if (existsSync(archivo)) return s.type('image/webp').send(readFileSync(archivo));
+  if (existsSync(svg)) return s.type('image/svg+xml').send(readFileSync(svg));
+  const variantes = [...new Set([cod, cod.replace(/_fe0f/g, ''), cod.split('_')[0]])];
+  for (const [tipo, url, dest] of variantes.flatMap((c) => [['image/webp', `https://fonts.gstatic.com/s/e/notoemoji/latest/${c}/512.webp`, archivo], ['image/svg+xml', `https://fonts.gstatic.com/s/e/notoemoji/latest/${c}/emoji.svg`, svg]])) {
     try {
-      const x = await fetch(`https://fonts.gstatic.com/s/e/notoemoji/latest/${c}/512.webp`);
-      if (x.ok) { const b = Buffer.from(await x.arrayBuffer()); writeFileSync(archivo, b); return s.type('image/webp').send(b); }
+      const x = await fetch(url);
+      if (x.ok) { const b = Buffer.from(await x.arrayBuffer()); writeFileSync(dest, b); return s.type(tipo).send(b); }
     } catch {}
   }
   s.status(404).end();

@@ -170,12 +170,62 @@ function timeline(g, formato, graf) {
   return { fps: FPS, ancho: W, alto: H, formato, paleta: g.paleta, titulo: g.titulo, emoji: gancho.emoji || '🤯', escenas, duracion: cursor };
 }
 
+
+// ---------- voz adelantada: cada escena se graba apenas Haiku la termina de escribir ----------
+function escenasCompletas(txt) {
+  const k = txt.indexOf('"escenas"');
+  if (k < 0) return { cabeza: null, escenas: [] };
+  const a = txt.indexOf('[', k);
+  if (a < 0) return { cabeza: null, escenas: [] };
+  const out = []; let prof = 0, enStr = false, esc = false, ini = -1;
+  for (let i = a + 1; i < txt.length; i++) {
+    const c = txt[i];
+    if (enStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') enStr = false; continue; }
+    if (c === '"') enStr = true;
+    else if (c === '{') { if (prof === 0) ini = i; prof++; }
+    else if (c === '}') { prof--; if (prof === 0 && ini >= 0) { out.push(txt.slice(ini, i + 1)); ini = -1; } }
+    else if (c === ']' && prof === 0) break;
+  }
+  return { cabeza: txt.slice(0, k).replace(/,\s*$/, '') + '}', escenas: out };
+}
+function vozAdelantada(voz, rate) {
+  let valores = null, pedido = false, hechas = 0;
+  return (txt) => {
+    const { cabeza, escenas } = escenasCompletas(txt);
+    if (!cabeza) return;
+    if (!pedido) {
+      pedido = true;
+      try {
+        const h = extraerJSON(cabeza);
+        motor('resolver', { variables: h.variables || {}, calculos: (h.calculos || []).filter((c) => c && c.id) }).then((r) => { valores = r.valores; }).catch(() => {});
+      } catch { pedido = false; }
+    }
+    if (!valores) return;
+    const nuevas = escenas.slice(hechas);
+    if (!nuevas.length) return;
+    hechas = escenas.length;
+    const frases = [];
+    for (const js of nuevas) {
+      try {
+        const e = JSON.parse(js);
+        const nar = String(e.narracion || e.texto || e.nota || '').slice(0, 320).replace(/\{\s*(\w+)\s*\}/g, (_, id) => valores[id]?.texto ?? '?');
+        if (nar.includes('?') && /\{/.test(js) && !/\?/.test(e.narracion || '')) continue;
+        const texto = paraVoz(nar);
+        frases.push({ key: createHash('sha1').update(voz + rate + texto).digest('hex').slice(0, 20), texto, voz, rate });
+      } catch {}
+    }
+    if (frases.length) motor('tts', { dir: join(DATA, 'media', 'tts'), frases }, 90000).catch(() => {});
+  };
+}
+
 // ---------- orquestacion ----------
 async function escribirGuion(tr, ctx) {
   const prompt = promptGuion(ctx);
   let ultimo = 0, chars = 0, titulo = null;
+  const adelanto = vozAdelantada(ctx.voz, ctx.formato === 'vertical' ? '+14%' : '+8%');
   const onTexto = (txt) => {
     chars = txt.length;
+    try { adelanto(txt); } catch {}
     const tt = tituloParcial(txt);
     if (tt && tt !== titulo) { titulo = tt; emitir(tr, { etapa: 'titulo', titulo }); }
     if (Date.now() - ultimo > 180) { ultimo = Date.now(); emitir(tr, { etapa: 'escribiendo', chars, cola: txt.slice(-160) }); }
@@ -223,9 +273,9 @@ export function generarVideo({ usuario, leccion, formato = 'vertical', publico =
       const stats = json(pf?.stats, {});
       emitir(tr, { etapa: 'perfil', msg: `Leyendo el perfil de ${usuario.nombre.split(' ')[0]}: ${[...(perfil.gustos || []).slice(0, 3), ...(perfil.idolos || []).slice(0, 2)].join(', ') || 'sin perfil'}` });
       const evitar = todos('SELECT titulo FROM videos WHERE autor_id=? ORDER BY id DESC LIMIT 8', usuario.id).map((v) => v.titulo);
-      const { g, r, motor: motorUsado } = await escribirGuion(tr, { formato, leccion, alumno: usuario, perfil, stats, evitar });
-      emitir(tr, { etapa: 'voz', msg: `Grabando la voz de ${g.escenas.length} escenas en paralelo…` });
       const voz = perfil.voz === 'Marta' ? 'es-GT-MartaNeural' : 'es-GT-AndresNeural';
+      const { g, r, motor: motorUsado } = await escribirGuion(tr, { formato, leccion, alumno: usuario, perfil, stats, evitar, voz });
+      emitir(tr, { etapa: 'voz', msg: `Voz de ${g.escenas.length} escenas (se fue grabando mientras Haiku escribía)…` });
       const fallos = await ponerVoz(g, voz, formato);
       if (fallos) emitir(tr, { etapa: 'aviso', msg: `${fallos} escenas sin voz (sin internet): van con subtítulos` });
       const tl = timeline(g, formato, r.valores);
