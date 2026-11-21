@@ -20,7 +20,7 @@ export function Transicion({ tipo, P, emoji, claro }) {
   const { width: W, height: H } = useVideoConfig();
   const medio = DUR_TRANSICION / 2;
   const entra = interpolate(f, [0, medio], [0, 1], { ...clamp, easing: Easing.in(Easing.cubic) });
-  const sale = interpolate(f, [medio, DUR_TRANSICION], [1, 0], { ...clamp, easing: Easing.out(Easing.expo) });
+  const sale = interpolate(f, [medio, DUR_TRANSICION], [1, 0], { ...clamp, easing: Easing.out(Easing.exp) });
   const cubre = f < medio ? entra : sale;
   if (tipo === 'destello') {
     return <AbsoluteFill style={{ pointerEvents: 'none', background: `radial-gradient(circle at 50% 45%, ${claro ? '#fff' : '#fffbe6'} 0%, ${P.a} 38%, transparent ${30 + cubre * 70}%)`, opacity: cubre }} />;

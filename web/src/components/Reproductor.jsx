@@ -66,6 +66,8 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
     const onPause = () => { jugando = false; if (Date.now() - sistema < 400) return; if (!fin && p.getCurrentFrame() < tl.duracion - 3) push('pausa'); };
     const onSeeked = (e) => {
       const to = e.detail.frame;
+      // si el alumno salta lejos de la pregunta abierta, se cierran sus botones (antes quedaban pegados)
+      if (Date.now() - sistema > 400) setPregunta((pq) => (pq && Math.abs(to - (pq.inicio + pq.q)) > 10 ? null : pq));
       if (Date.now() - sistema > 400 && Math.abs(to - ultimo) > 8) push(to < ultimo ? 'rebobinar' : 'salto', { desde: +(ultimo / tl.fps).toFixed(2), hasta: +(to / tl.fps).toFixed(2) }, to);
       ultimo = to;
     };

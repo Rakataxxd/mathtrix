@@ -254,7 +254,7 @@ function lanzar(u, l, formato, estilo, base) {
 app.post('/api/lecciones/:id/generar', req(), (r, s) => {
   const l = leccionDe(r.u, r.params.id);
   if (!l) return s.status(404).json({ error: 'Clase no encontrada' });
-  const formato = r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical';
+  const formato = r.body?.formato === 'vertical' ? 'vertical' : 'horizontal';
   const estilo = estiloOk(r.body?.estilo);
   if (r.body?.base) return s.json({ trabajo: lanzar(r.u, l, formato, estilo, true) });
   const k = `${r.u.id}:${l.id}:${formato}`;
@@ -268,7 +268,7 @@ app.post('/api/lecciones/:id/generar', req(), (r, s) => {
 app.post('/api/lecciones/:id/pregenerar', req('alumno'), (r, s) => {
   const l = leccionDe(r.u, r.params.id);
   if (!l) return s.status(404).json({ error: 'Clase no encontrada' });
-  const formato = r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical';
+  const formato = r.body?.formato === 'vertical' ? 'vertical' : 'horizontal';
   const k = `${r.u.id}:${l.id}:${formato}`;
   if (!pre.has(k) || !trabajos.has(pre.get(k)) || trabajos.get(pre.get(k)).estado === 'error') pre.set(k, lanzar(r.u, l, formato));
   s.json({ ok: true, trabajo: pre.get(k) });
@@ -276,7 +276,7 @@ app.post('/api/lecciones/:id/pregenerar', req('alumno'), (r, s) => {
 app.post('/api/generar-libre', req(), (r, s) => {
   const tema = String(r.body?.tema || '').slice(0, 120);
   if (!tema) return s.status(400).json({ error: 'Escribí un tema' });
-  s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { titulo: tema, tema, objetivo: r.body?.detalle || '' }, formato: r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical', estilo: estiloOk(r.body?.estilo),
+  s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { titulo: tema, tema, objetivo: r.body?.detalle || '' }, formato: r.body?.formato === 'vertical' ? 'vertical' : 'horizontal', estilo: estiloOk(r.body?.estilo),
     ...(r.body?.base ? { nota: NOTA_BASE, tipo: 'base' } : {}) }) });
 });
 app.get('/api/trabajos/:id', (r, s) => {
@@ -360,7 +360,7 @@ app.post('/api/revisar', req(), subir.single('foto'), async (r, s) => {
   writeFileSync(join(DATA, 'uploads', nombre), readFileSync(f.path));
   const l = r.body?.leccion_id ? leccionDe(r.u, r.body.leccion_id) : null;
   const nota = String(r.body?.nota || '').slice(0, 400);
-  const formato = r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical';
+  const formato = r.body?.formato === 'vertical' ? 'vertical' : 'horizontal';
   const contexto = l ? `Clase: ${l.titulo} (${l.tema}).` : '';
   let revId = null;
   const antes = async (tr) => {

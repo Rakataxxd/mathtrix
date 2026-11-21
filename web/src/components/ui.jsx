@@ -47,7 +47,7 @@ export function CrearVideo({ onCerrar }) {
   const { perfil } = useSesion();
   const [modo, setModo] = useState('tema');
   const [tema, setTema] = useState('');
-  const [formato, setFormato] = useState('vertical');
+  const [formato, setFormato] = useState('horizontal');
   const [trabajo, setTrabajo] = useState(null);
   const [err, setErr] = useState(null);
   const enviar = async (e) => {

@@ -308,7 +308,7 @@ async function escribirGuion(tr, ctx) {
   return { g, r, motor: 'plantilla' };
 }
 
-export function generarVideo({ usuario, leccion, formato = 'vertical', publico = true, estilo, nota = '', tipo = 'normal', antes, despues }) {
+export function generarVideo({ usuario, leccion, formato = 'horizontal', publico = true, estilo, nota = '', tipo = 'normal', antes, despues }) {
   const id = randomUUID();
   const tr = { id, inicio: Date.now(), eventos: [], oyentes: new Set(), estado: 'corriendo' };
   trabajos.set(id, tr);

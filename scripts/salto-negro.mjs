@@ -1,0 +1,34 @@
+// Reproduce: adelantar y regresar en el video deja la pantalla negra. Uso: VID=42 node scripts/salto-negro.mjs
+import { chromium } from 'playwright-core';
+const BASE = process.env.BASE || 'http://127.0.0.1:8110';
+const OUT = 'C:/Users/usuario/proyectos/mathtrix/data/capturas/';
+const VID = process.env.VID || 42;
+const b = await chromium.launch({ headless: true, executablePath: 'C:/Users/usuario/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe', args: ['--mute-audio', '--enable-gpu', '--use-angle=d3d11', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
+const p = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+const log = [];
+p.on('pageerror', (e) => log.push('ERR ' + e.message));
+p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') log.push(m.type() + ' ' + m.text().slice(0, 200)); });
+await p.goto(BASE);
+const r = await p.evaluate(async () => (await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'diego@demo.gt', clave: 'mathtrix' }) })).json());
+await p.evaluate((t) => localStorage.setItem('mtx_token', t), r.token);
+await p.goto(BASE + '/ver/' + VID);
+await p.waitForTimeout(2500);
+const paso = async (n, fr, play = true) => {
+  await p.evaluate(([f, pl]) => { window.__mtxPlayer.seekTo(f); if (pl) window.__mtxPlayer.play(); }, [fr, play]);
+  await p.waitForTimeout(1500);
+  const st = await p.evaluate(() => ({ fr: window.__mtxPlayer.getCurrentFrame(), playing: window.__mtxPlayer.isPlaying(), preg: !!document.querySelector('.mtx-pregunta') }));
+  await p.locator('.mtx-marco').screenshot({ path: OUT + 'salto-' + n + '.png' });
+  console.log(n, JSON.stringify(st));
+};
+await p.evaluate(() => window.__mtxPlayer.play());
+await p.waitForTimeout(1500);
+await paso('1-adelante', 1900);
+await paso('2-atras', 1170);
+await paso('3-atras-mas', 500);
+await paso('4-borde', 1566, false);
+await p.waitForTimeout(4000);
+console.log('dom', await p.evaluate(() => { const m = document.querySelector('.mtx-marco'); return { imgs: m.querySelectorAll('img').length, divs: m.querySelectorAll('div').length, audios: document.querySelectorAll('audio').length, texto: m.innerText.slice(0, 80) }; }));
+await p.locator('.mtx-marco').screenshot({ path: OUT + 'salto-5-borde-espera.png' });
+await paso('6-play-desde-borde', 1566, true);
+console.log(log.length ? log.join('\n') : 'sin errores');
+await b.close();

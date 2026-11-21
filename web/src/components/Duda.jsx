@@ -46,7 +46,7 @@ export function Duda({ video, t, escena, onCerrar, onSeguir }) {
   // volver a la base (atama+): un video mas basico del mismo tema
   const masBasico = async () => {
     try {
-      const d = video.leccion ? await api(`/lecciones/${video.leccion.id}/generar`, { cuerpo: { base: true, formato: 'vertical' } }) : await api('/generar-libre', { cuerpo: { tema: video.tema || video.titulo, base: true } });
+      const d = video.leccion ? await api(`/lecciones/${video.leccion.id}/generar`, { cuerpo: { base: true, formato: 'horizontal' } }) : await api('/generar-libre', { cuerpo: { tema: video.tema || video.titulo, base: true } });
       setTrabajo(d.trabajo);
     } catch {}
   };

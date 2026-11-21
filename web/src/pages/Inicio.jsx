@@ -15,7 +15,7 @@ export function Inicio() {
   const [vids, setVids] = useState(null);
   const [tema, setTema] = useState('Todo');
   const [idea, setIdea] = useState('');
-  const [formato, setFormato] = useState('vertical');
+  const [formato, setFormato] = useState('horizontal');
   const [trabajo, setTrabajo] = useState(null);
   const [foto, setFoto] = useState(false);
   const q = params.get('q') || '';

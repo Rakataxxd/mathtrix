@@ -40,7 +40,7 @@ export function RetoFinal({ video, clave, P, onCerrar, onRepetir, siguiente }) {
   };
   const generar = async (base) => {
     try {
-      const d = video.leccion ? await api(`/lecciones/${video.leccion.id}/generar`, { cuerpo: { base, formato: 'vertical' } }) : await api('/generar-libre', { cuerpo: { tema: video.tema || video.titulo, base } });
+      const d = video.leccion ? await api(`/lecciones/${video.leccion.id}/generar`, { cuerpo: { base, formato: 'horizontal' } }) : await api('/generar-libre', { cuerpo: { tema: video.tema || video.titulo, base } });
       setTrabajo(d.trabajo);
     } catch {}
   };

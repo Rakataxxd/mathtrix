@@ -29,7 +29,7 @@ function LeccionAlumno() {
       const c = await api('/cursos/' + x.curso_id);
       const m = c.lecciones.find((y) => String(y.id) === id)?.mis_videos || [];
       setMios(m);
-      if (!m.length) { const r = await api(`/lecciones/${id}/pregenerar`, { cuerpo: { formato: 'vertical' } }); setT0(Date.now()); setTrabajo(r.trabajo); }
+      if (!m.length) { const r = await api(`/lecciones/${id}/pregenerar`, { cuerpo: { formato: 'horizontal' } }); setT0(Date.now()); setTrabajo(r.trabajo); }
     }).catch((e) => setErr(e.message));
   }, [id]);
   const st = useTrabajo(trabajo);
@@ -54,9 +54,9 @@ function LeccionAlumno() {
               <h2 style={{ marginTop: 6, fontSize: 22, lineHeight: 1.25 }}>{ultimo.titulo}</h2>
               <div className="fila" style={{ marginTop: 18, flexWrap: 'wrap', gap: 8 }}>
                 <Link to={'/ver/' + ultimo.id} className="btn lima grande"><Play size={17} fill="#000" />Ver</Link>
-                <button className="btn" onClick={() => otro('vertical')}><Sparkles size={16} />Otro gancho</button>
-                <button className="btn fant" onClick={() => otro('horizontal')}><RectangleHorizontal size={16} />Versión larga</button>
-                <button className="btn fant" onClick={() => otro('vertical', true)}><LifeBuoy size={16} />Más básico</button>
+                <button className="btn" onClick={() => otro('horizontal')}><Sparkles size={16} />Otro gancho</button>
+                <button className="btn fant" onClick={() => otro('vertical')}><Smartphone size={16} />Versión Short</button>
+                <button className="btn fant" onClick={() => otro('horizontal', true)}><LifeBuoy size={16} />Más básico</button>
               </div>
             </div>
           </div>

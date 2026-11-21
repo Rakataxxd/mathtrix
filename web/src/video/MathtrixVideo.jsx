@@ -66,10 +66,11 @@ export function MathtrixVideo({ tl, estilo, elecciones, sinSonidos }) {
               let audioRama = null;
               if (e.tipo === 'pregunta') {
                 const bien = el[e.i] === undefined || el[e.i] === e.correcta;
-                const pr = bien ? e.palabras_bien : e.palabras_mal;
+                // sin respuesta todavia no hay rama: ni subtitulos ni audio de "¡Exacto!"
+                const pr = el[e.i] === undefined ? [] : bien ? e.palabras_bien : e.palabras_mal;
                 const off = e.q / tl.fps;
                 palabras = [...(e.palabras || []), ...(pr || []).map((p, k) => ({ ...p, t: p.t + off, corte: k === 0 }))];
-                audioRama = bien ? e.audio_bien : e.audio_mal;
+                audioRama = el[e.i] === undefined ? null : bien ? e.audio_bien : e.audio_mal;
               }
               return (
                 <Sequence key={i} from={e.inicio} durationInFrames={e.duracion} name={`${i + 1}. ${e.tipo}`}>
