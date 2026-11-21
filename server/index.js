@@ -167,8 +167,8 @@ app.post('/api/lecciones/:id/escanear', req('profesor'), async (r, s) => {
 function vRes(v) {
   const tl = typeof v.timeline === 'string' ? json(v.timeline, {}) : v.timeline;
   const g = tl?.escenas?.[0] || {};
-  return { id: v.id, titulo: v.titulo, formato: v.formato, creado: v.creado, duracion: v.duracion, vistas: v.vistas, tema: v.tema, autor: v.autor, autor_color: v.autor_color,
-    likes: v.likes, etiquetas: json(v.etiquetas, []), motivo: v.motivo, poster: { paleta: tl?.paleta, emoji: tl?.emoji, texto: g.texto, extras: g.extras } };
+  return { id: v.id, titulo: v.titulo, formato: v.formato, estilo: tl?.estilo || 'ilustrado', creado: v.creado, duracion: v.duracion, vistas: v.vistas, tema: v.tema, autor: v.autor, autor_color: v.autor_color,
+    likes: v.likes, etiquetas: json(v.etiquetas, []), motivo: v.motivo, poster: { paleta: tl?.paleta, emoji: tl?.emoji, texto: g.texto, extras: g.extras, estilo: tl?.estilo || 'ilustrado' } };
 }
 const SELECT_V = `SELECT v.*, u.nombre autor, u.color autor_color, (SELECT COUNT(*) FROM likes l WHERE l.video_id=v.id AND l.valor=1) likes FROM videos v LEFT JOIN usuarios u ON u.id=v.autor_id`;
 
@@ -205,6 +205,13 @@ app.post('/api/videos/:id/comentarios', req(), (r, s) => {
   correr('INSERT INTO comentarios(video_id,usuario_id,texto) VALUES(?,?,?)', r.params.id, r.u.id, t);
   s.json({ ok: true });
 });
+// revisar una pregunta del reto final (feedback inmediato en el overlay)
+app.post('/api/videos/:id/quiz/revisar', req(), (r, s) => {
+  const v = uno('SELECT quiz FROM videos WHERE id=?', r.params.id);
+  const q = json(v?.quiz, [])[+r.body?.i];
+  if (!q) return s.status(404).json({ error: 'Pregunta no encontrada' });
+  s.json({ ok: r.body?.eleccion === q.correcta, correcta: q.correcta, explicacion: q.explicacion });
+});
 app.post('/api/videos/:id/quiz', req(), (r, s) => {
   const v = uno('SELECT * FROM videos WHERE id=?', r.params.id);
   if (!v) return s.status(404).json({ error: 'Video no encontrado' });
@@ -229,18 +236,22 @@ app.post('/api/eventos', req(), (r, s) => {
 
 // ---------- generacion ----------
 const pre = new Map(); // pre-generacion: usuario:leccion:formato -> trabajo
-function lanzar(u, l, formato) {
-  return generarVideo({ usuario: u, leccion: { id: l.id, titulo: l.titulo, tema: l.tema, objetivo: l.objetivo, ejercicio: l.ejercicio, prompt: l.prompt }, formato });
+const ESTILOS = ['ilustrado', 'tiza', 'blueprint', 'manim', 'cuaderno', 'neon'];
+const estiloOk = (x) => (ESTILOS.includes(x) ? x : undefined);
+function lanzar(u, l, formato, estilo) {
+  return generarVideo({ usuario: u, leccion: { id: l.id, titulo: l.titulo, tema: l.tema, objetivo: l.objetivo, ejercicio: l.ejercicio, prompt: l.prompt }, formato, estilo });
 }
 app.post('/api/lecciones/:id/generar', req(), (r, s) => {
   const l = leccionDe(r.u, r.params.id);
   if (!l) return s.status(404).json({ error: 'Clase no encontrada' });
   const formato = r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical';
+  const estilo = estiloOk(r.body?.estilo);
   const k = `${r.u.id}:${l.id}:${formato}`;
   const p = pre.get(k);
   pre.delete(k);
-  if (p && trabajos.get(p)?.estado !== 'error') return s.json({ trabajo: p, adelantado: true });
-  s.json({ trabajo: lanzar(r.u, l, formato) });
+  // la plantilla visual no cambia el guion: se reutiliza lo adelantado y solo se pinta distinto
+  if (p && trabajos.get(p)?.estado !== 'error') { if (estilo) trabajos.get(p).estilo = estilo; return s.json({ trabajo: p, adelantado: true }); }
+  s.json({ trabajo: lanzar(r.u, l, formato, estilo) });
 });
 // Truco: se arranca el guion mientras el alumno todavia esta eligiendo
 app.post('/api/lecciones/:id/pregenerar', req('alumno'), (r, s) => {
@@ -254,7 +265,7 @@ app.post('/api/lecciones/:id/pregenerar', req('alumno'), (r, s) => {
 app.post('/api/generar-libre', req(), (r, s) => {
   const tema = String(r.body?.tema || '').slice(0, 120);
   if (!tema) return s.status(400).json({ error: 'Escribí un tema' });
-  s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { titulo: tema, tema, objetivo: r.body?.detalle || '' }, formato: r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical' }) });
+  s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { titulo: tema, tema, objetivo: r.body?.detalle || '' }, formato: r.body?.formato === 'horizontal' ? 'horizontal' : 'vertical', estilo: estiloOk(r.body?.estilo) }) });
 });
 app.get('/api/trabajos/:id', (r, s) => {
   s.set({ 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });

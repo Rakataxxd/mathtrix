@@ -2,18 +2,21 @@
 import React from 'react';
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, random } from 'remotion';
 import { Objeto, Emoji, Mascota, Confeti, Destellos, useSp, useVert, DISPLAY, MONO, FUENTE, clamp } from './fx.jsx';
+import { useEstilo, useClaveEstilo } from './estilos.jsx';
+import { createContext, useContext } from 'react';
 import { Expr, Morph, tamanoExpr } from './morph.jsx';
 
 const vidrio = (P, extra = {}) => ({
-  background: 'linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.04))',
-  border: '1.5px solid rgba(255,255,255,.22)', boxShadow: `inset 0 1px 0 rgba(255,255,255,.35), inset 0 0 60px ${P.a}14, 0 30px 80px rgba(0,0,0,.45)`,
-  borderRadius: 36, ...extra,
+  background: 'var(--mtx-panel-bg)', border: 'var(--mtx-panel-borde)', boxShadow: 'var(--mtx-panel-sombra)', borderRadius: 'var(--mtx-panel-radio)', ...extra,
 });
+export const tono = (hex, a) => { const h = String(hex || '#ffffff').replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h.slice(0, 6), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+/** Elecciones del alumno en las preguntas del video (se pasan desde el reproductor). */
+export const EleccionesCtx = createContext({});
 
 function Chip({ children, P, style, delay = 0 }) {
   const sp = useSp();
   const s = sp(delay);
-  return <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, padding: '14px 30px', borderRadius: 999, background: P.a, color: '#0b0420', fontFamily: DISPLAY, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', transform: `scale(${s}) rotate(${(1 - s) * -8}deg)`, boxShadow: `0 10px 30px ${P.a}55`, ...style }}>{children}</div>;
+  return <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, padding: '14px 30px', borderRadius: 999, background: 'var(--mtx-chip-bg)', color: 'var(--mtx-chip-tx)', border: 'var(--mtx-chip-borde)', borderRadius: 'var(--mtx-chip-radio)', boxShadow: 'var(--mtx-chip-sombra)', fontFamily: DISPLAY, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', transform: `scale(${s}) rotate(${(1 - s) * -8}deg)`, ...style }}>{children}</div>;
 }
 
 // ---------- GANCHO ----------
@@ -30,34 +33,38 @@ function palabrasGancho(txt) {
 export function Gancho({ e, P }) {
   const f = useCurrentFrame();
   const sp = useSp();
+  const E = useEstilo(); const clave = useClaveEstilo();
+  const escribe = E.entrada === 'escribir';
   const { W, H, v } = useVert();
   const ws = palabrasGancho(e.texto);
   const largo = (e.texto || '').length;
-  const fs = v ? (largo < 32 ? 112 : largo < 48 ? 94 : 80) : (largo < 32 ? 100 : largo < 48 ? 84 : 72);
+  const fs = (v ? (largo < 32 ? 112 : largo < 48 ? 94 : 80) : (largo < 32 ? 100 : largo < 48 ? 84 : 72)) * (clave === 'neon' ? 1.28 : clave === 'tiza' || clave === 'cuaderno' ? 1.08 : 1);
   const ox = v ? W / 2 : W * 0.27, oy = v ? H * 0.27 : H * 0.5;
-  const shake = interpolate(f, [4, 26], [16, 0], clamp);
+  const shake = interpolate(f, [4, 26], [16, 0], clamp) * (escribe ? 0 : E.camara);
   const sx = Math.sin(f * 2.7) * shake, sy = Math.cos(f * 3.1) * shake;
-  const flash = interpolate(f, [0, 6], [0.85, 0], clamp);
+  const flash = escribe ? 0 : interpolate(f, [0, 6], [0.85, 0], clamp);
   const ruleta = Array.from({ length: 4 }, (_, i) => Math.floor(random('d' + i + Math.floor(f / 2)) * 10)).join('');
   const sticker = sp(18, { damping: 8 });
   return (
     <AbsoluteFill style={{ transform: `translate(${sx}px, ${sy}px)` }}>
       {/* rayos giratorios detras del objeto */}
-      <div style={{ position: 'absolute', left: ox - 900, top: oy - 900, width: 1800, height: 1800, borderRadius: '50%', background: `repeating-conic-gradient(from ${f * 0.7}deg, ${P.a}22 0deg 9deg, transparent 9deg 22deg)`, WebkitMaskImage: 'radial-gradient(circle, #000 0%, transparent 62%)', maskImage: 'radial-gradient(circle, #000 0%, transparent 62%)', opacity: sp(0) }} />
+      {(clave === 'ilustrado' || clave === 'neon') && <div style={{ position: 'absolute', left: ox - 900, top: oy - 900, width: 1800, height: 1800, borderRadius: '50%', background: `repeating-conic-gradient(from ${f * 0.7}deg, ${P.a}22 0deg 9deg, transparent 9deg 22deg)`, WebkitMaskImage: 'radial-gradient(circle, #000 0%, transparent 62%)', maskImage: 'radial-gradient(circle, #000 0%, transparent 62%)', opacity: sp(0) }} />}
       <Objeto e={e.emoji} size={v ? 460 : 500} x={ox} y={oy} P={P} intensidad={1.4} />
       {(e.extras || []).slice(0, 2).map((x, i) => {
         const a = f * 0.035 + i * Math.PI + 0.6;
         const r = v ? 330 : 360;
         return <div key={i} style={{ position: 'absolute', left: ox + Math.cos(a) * r - 75, top: oy + Math.sin(a) * r * 0.55 - 75, transform: `scale(${sp(10 + i * 5)})` }}><Emoji e={x} size={150} /></div>;
       })}
-      <div style={{ position: 'absolute', left: ox + (v ? 150 : 170), top: oy - (v ? 300 : 320), transform: `scale(${sticker}) rotate(${12 + Math.sin(f / 6) * 5}deg)`, padding: '14px 26px', borderRadius: 22, background: P.b, color: '#fff', fontFamily: MONO, fontWeight: 800, fontSize: 52, boxShadow: '0 14px 40px rgba(0,0,0,.4)' }}>= {f < 60 ? ruleta : '¿?'}</div>
-      <div style={{ position: 'absolute', left: v ? W * 0.05 : W * 0.5, right: W * 0.05, top: v ? H * 0.445 : 0, bottom: v ? undefined : 0, display: 'flex', flexWrap: 'wrap', alignContent: 'center', justifyContent: v ? 'center' : 'flex-start', gap: '0 .26em', fontFamily: DISPLAY, fontWeight: 900, fontSize: fs, lineHeight: 1.06, letterSpacing: '-0.02em', textAlign: v ? 'center' : 'left' }}>
+      <div style={{ position: 'absolute', left: ox + (v ? 150 : 170), top: oy - (v ? 300 : 320), transform: `scale(${sticker}) rotate(${12 + Math.sin(f / 6) * 5}deg)`, padding: '14px 26px', borderRadius: 22, background: P.b, color: P.tx, fontFamily: MONO, fontWeight: 800, fontSize: 52, boxShadow: '0 14px 40px rgba(0,0,0,.4)' }}>= {f < 60 ? ruleta : '¿?'}</div>
+      <div style={{ position: 'absolute', left: v ? W * 0.05 : W * 0.5, right: W * 0.05, top: v ? H * 0.445 : 0, bottom: v ? undefined : 0, display: 'flex', flexWrap: 'wrap', alignContent: 'center', justifyContent: v ? 'center' : 'flex-start', gap: '0 .26em', fontFamily: DISPLAY, fontWeight: 900, fontSize: fs, lineHeight: clave === 'neon' ? 1.12 : 1.06, letterSpacing: clave === 'neon' ? '.01em' : '-0.02em', textAlign: v ? 'center' : 'left' }}>
         {ws.map((w, i) => {
           const s = sp(6 + i * 3, { damping: 9, mass: 0.5 });
-          return <span key={i} style={{ display: 'inline-block', opacity: Math.min(1, s * 2), transform: `scale(${interpolate(s, [0, 1], [2.6, 1])}) rotate(${(1 - s) * (i % 2 ? 9 : -9)}deg)`, color: w.r ? '#0b0420' : '#fff', background: w.r ? P.a : 'transparent', padding: w.r ? '0 .14em' : 0, borderRadius: '.12em', margin: '.04em 0', WebkitTextStroke: w.r ? 0 : '3px rgba(0,0,0,.35)', textShadow: w.r ? 'none' : `0 8px 0 ${P.b}66, 0 18px 40px rgba(0,0,0,.5)`, boxShadow: w.r ? `0 10px 0 ${P.b}` : 'none' }}>{w.w}</span>;
+          const k = escribe ? interpolate(f, [3 + i * 2.6, 9 + i * 2.6], [0, 1], clamp) : 0;
+          const anim = escribe ? { opacity: k > 0 ? 1 : 0, clipPath: `inset(-20% ${(1 - k) * 100}% -20% 0)` } : { opacity: Math.min(1, s * 2), transform: `scale(${interpolate(s, [0, 1], [2.6, 1])}) rotate(${(1 - s) * (i % 2 ? 9 : -9)}deg)` };
+          return <span key={i} style={{ display: 'inline-block', ...anim, color: w.r ? 'var(--mtx-resalta-tx)' : P.tx, background: w.r ? 'var(--mtx-resalta-bg)' : 'transparent', padding: w.r ? '0 .14em' : 0, borderRadius: '.12em', margin: '.04em 0', WebkitTextStroke: w.r ? 0 : 'var(--mtx-trazo-texto)', textShadow: w.r ? 'none' : 'var(--mtx-sombra-texto)', boxShadow: w.r ? 'var(--mtx-resalta-sombra)' : 'none', textDecoration: w.r && escribe ? 'underline' : 'none', textDecorationThickness: '.08em', textUnderlineOffset: '.12em' }}>{w.w}</span>;
         })}
       </div>
-      <AbsoluteFill style={{ background: '#fff', opacity: flash }} />
+      {flash > 0 && <AbsoluteFill style={{ background: '#fff', opacity: flash }} />}
     </AbsoluteFill>
   );
 }
@@ -80,8 +87,8 @@ export function Datos({ e, P }) {
             <div key={i} style={{ ...vidrio(P), display: 'flex', alignItems: 'center', gap: 26, padding: v ? '18px 28px' : '20px 32px', transform: `translateX(${(1 - s) * 500}px) rotate(${(1 - s) * 6}deg)`, opacity: s }}>
               <Emoji e={d.emoji} size={v ? 84 : 92} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: FUENTE, fontWeight: 700, fontSize: v ? 34 : 32, color: 'rgba(255,255,255,.72)' }}>{d.etiqueta}</div>
-                <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: v ? 62 : 58, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontFamily: FUENTE, fontWeight: 700, fontSize: v ? 34 : 32, color: 'var(--mtx-tx2)' }}>{d.etiqueta}</div>
+                <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: v ? 62 : 58, color: P.tx, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {d.simbolo && <span style={{ color: P.a }}>{d.simbolo} = </span>}{d.valor}
                 </div>
               </div>
@@ -97,6 +104,7 @@ export function Datos({ e, P }) {
 // ---------- FORMULA ----------
 export function Formula({ e, P }) {
   const f = useCurrentFrame();
+  const clave = useClaveEstilo();
   const sp = useSp();
   const { W, H, v } = useVert();
   const ancho = v ? W * 0.86 : W * 0.72;
@@ -106,7 +114,7 @@ export function Formula({ e, P }) {
   return (
     <AbsoluteFill>
       <div style={{ position: 'absolute', top: v ? 160 : 80, left: 0, right: 0, textAlign: 'center' }}><Chip P={P} style={{ fontSize: v ? 38 : 32 }}>La fórmula</Chip></div>
-      <div style={{ position: 'absolute', left: (W - ancho) / 2, width: ancho, top: v ? H * 0.2 : H * 0.22, height: v ? H * 0.36 : H * 0.52, ...vidrio(P), transform: `perspective(1600px) rotateX(${(1 - s) * 28}deg) scale(${0.7 + s * 0.3})`, opacity: s, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 40, backgroundImage: 'linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.04))', backgroundSize: '48px 48px, 48px 48px, 100% 100%' }}>
+      <div style={{ position: 'absolute', left: (W - ancho) / 2, width: ancho, top: v ? H * 0.2 : H * 0.22, height: v ? H * 0.36 : H * 0.52, ...vidrio(P), transform: `perspective(1600px) rotateX(${(1 - s) * 28}deg) scale(${0.7 + s * 0.3})`, opacity: s, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 40, ...(clave === 'ilustrado' ? { backgroundImage: 'linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.04))', backgroundSize: '48px 48px, 48px 48px, 100% 100%' } : {}) }}>
         <div style={{ width: '100%' }}><Expr s={e.formula} P={P} size={size} maxEm={maxEm} f={f - 8} stagger={2} /></div>
         {e.nota && <div style={{ fontFamily: FUENTE, fontWeight: 800, fontSize: v ? 40 : 36, color: P.c, opacity: interpolate(f, [24, 34], [0, 1], clamp) }}>{e.nota}</div>}
       </div>
@@ -165,13 +173,13 @@ export function Resultado({ e, P }) {
       <div style={{ position: 'absolute', left: W / 2 - 700, top: cy - 700, width: 1400, height: 1400, borderRadius: '50%', background: `radial-gradient(circle, ${P.a}40, transparent 60%)`, transform: `scale(${0.6 + sp(36) * 0.5})` }} />
       <div style={{ position: 'absolute', top: v ? 170 : 70, left: 0, right: 0, textAlign: 'center' }}><Chip P={P} style={{ fontSize: v ? 40 : 34 }} delay={2}>Resultado</Chip></div>
       <div style={{ position: 'absolute', left: 0, right: 0, top: cy - fs * 0.7, textAlign: 'center', transform: `scale(${golpe})` }}>
-        <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: fs, letterSpacing: '-0.03em', background: `linear-gradient(180deg, #fffbe0 8%, ${P.a} 45%, #ff9f1c 100%)`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: `drop-shadow(0 10px 0 rgba(0,0,0,.35)) drop-shadow(0 0 40px ${P.a}88)` }}>{txt}</span>
-        {e.unidad && <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: fs * 0.36, color: '#fff', marginLeft: 18 }}>{e.unidad}</span>}
+        <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: fs, letterSpacing: '-0.03em', background: 'var(--mtx-resultado)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: 'var(--mtx-resultado-filtro)' }}>{txt}</span>
+        {e.unidad && <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: fs * 0.36, color: P.tx, marginLeft: 18 }}>{e.unidad}</span>}
       </div>
       <Objeto e={e.emoji} size={v ? 250 : 240} x={v ? W * 0.5 : W * 0.15} y={v ? H * 0.17 + 40 : H * 0.72} P={P} delay={30} intensidad={1.6} />
       {e.comparacion && (
         <div style={{ position: 'absolute', left: W * 0.08, right: W * 0.08, top: v ? H * 0.47 : H * 0.66, textAlign: 'center', transform: `translateY(${(1 - sp(44)) * 120}px)`, opacity: sp(44) }}>
-          <div style={{ ...vidrio(P), display: 'inline-block', padding: v ? '22px 38px' : '20px 40px', fontFamily: FUENTE, fontWeight: 800, fontSize: v ? 50 : 44, color: '#fff' }}>{e.comparacion}</div>
+          <div style={{ ...vidrio(P), display: 'inline-block', padding: v ? '22px 38px' : '20px 40px', fontFamily: FUENTE, fontWeight: 800, fontSize: v ? 50 : 44, color: P.tx }}>{e.comparacion}</div>
         </div>
       )}
       <Confeti x={W / 2} y={cy} inicio={38} P={P} />
@@ -196,11 +204,11 @@ export function Iconos({ e, P }) {
   const cuenta = Math.round(lleno * cada);
   return (
     <AbsoluteFill>
-      <div style={{ position: 'absolute', top: v ? 150 : 60, left: 0, right: 0, textAlign: 'center', fontFamily: DISPLAY, fontWeight: 900, fontSize: v ? 150 : 130, color: '#fff', textShadow: `0 10px 0 ${P.b}88` }}>{Math.min(cuenta, n).toLocaleString('en-US')}</div>
+      <div style={{ position: 'absolute', top: v ? 150 : 60, left: 0, right: 0, textAlign: 'center', fontFamily: DISPLAY, fontWeight: 900, fontSize: v ? 150 : 130, color: P.tx, textShadow: `0 10px 0 ${P.b}88` }}>{Math.min(cuenta, n).toLocaleString('en-US')}</div>
       <div style={{ position: 'absolute', left: (W - cols * tam / 0.9) / 2, top: v ? H * 0.2 : H * 0.25, width: cols * tam / 0.9, display: 'flex', flexWrap: 'wrap' }}>
         {Array.from({ length: mostrar }, (_, i) => {
           const s = interpolate(lleno - i, [0, 1], [0, 1], clamp);
-          return <div key={i} style={{ width: tam / 0.9, height: tam / 0.9, display: 'grid', placeItems: 'center', transform: `scale(${s * (1 + Math.sin((f + i * 3) / 8) * 0.04)}) rotate(${(1 - s) * 90}deg)`, opacity: s }}><Emoji e={e.emoji} size={tam} /></div>;
+          return <div key={i} style={{ width: tam / 0.9, height: tam / 0.9, display: 'grid', placeItems: 'center', transform: `scale(${s * (1 + Math.sin((f + i * 3) / 8) * 0.04)}) rotate(${(1 - s) * 90}deg)`, opacity: s }}><Emoji e={e.emoji} size={tam} ligero={mostrar > 24} /></div>;
         })}
       </div>
       <div style={{ position: 'absolute', left: 0, right: 0, top: v ? H * 0.58 : H * 0.84, textAlign: 'center' }}>
@@ -232,11 +240,11 @@ export function Fraccion({ e, P }) {
           const ox = Math.cos(am) * sal, oy = Math.sin(am) * sal;
           const x0 = cx + Math.cos(a0) * R, y0 = cy + Math.sin(a0) * R, x1 = cx + Math.cos(a1) * R, y1 = cy + Math.sin(a1) * R;
           const d = `M${cx} ${cy} L${x0} ${y0} A${R} ${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1} ${y1}Z`;
-          return <path key={i} d={d} transform={`translate(${ox} ${oy})`} fill={marc ? 'url(#tajada)' : 'rgba(255,255,255,.1)'} stroke="rgba(255,255,255,.55)" strokeWidth={n > 24 ? 1.5 : 3} />;
+          return <path key={i} d={d} transform={`translate(${ox} ${oy})`} fill={marc ? 'url(#tajada)' : tono(P.tx, 0.1)} stroke={tono(P.tx, 0.55)} strokeWidth={n > 24 ? 1.5 : 3} />;
         })}
       </svg>
       <div style={{ position: 'absolute', left: v ? 0 : W * 0.56, right: v ? 0 : W * 0.04, top: v ? H * 0.53 : H * 0.3, textAlign: v ? 'center' : 'left', transform: `scale(${sp(18)})` }}>
-        <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: v ? 150 : 170, color: '#fff', textShadow: `0 10px 0 ${P.b}99` }}>{e.etiqueta || `${m}/${n}`}</div>
+        <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: v ? 150 : 170, color: P.tx, textShadow: `0 10px 0 ${P.b}99` }}>{e.etiqueta || `${m}/${n}`}</div>
         <div style={{ fontFamily: FUENTE, fontWeight: 800, fontSize: v ? 44 : 46, color: P.c }}>{m} de cada {n} · {((m / n) * 100).toLocaleString('en-US', { maximumFractionDigits: 1 })} %</div>
       </div>
     </AbsoluteFill>
@@ -260,10 +268,10 @@ export function Comparacion({ e, P }) {
           const w = Math.max(0.04, Math.abs(b.num || 0) / max) * ancho * s;
           return (
             <div key={i}>
-              <div style={{ fontFamily: FUENTE, fontWeight: 800, fontSize: v ? 40 : 36, color: '#fff', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 14 }}><Emoji e={b.emoji} size={v ? 64 : 58} />{b.etiqueta}</div>
+              <div style={{ fontFamily: FUENTE, fontWeight: 800, fontSize: v ? 40 : 36, color: P.tx, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 14 }}><Emoji e={b.emoji} size={v ? 64 : 58} />{b.etiqueta}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
                 <div style={{ height: v ? 74 : 64, width: w, borderRadius: 999, background: `linear-gradient(90deg, ${colores[i]}aa, ${colores[i]})`, boxShadow: `0 0 30px ${colores[i]}66, inset 0 2px 0 rgba(255,255,255,.5)` }} />
-                <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: v ? 50 : 46, color: '#fff', opacity: s, whiteSpace: 'nowrap' }}>{b.valor}</div>
+                <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: v ? 50 : 46, color: P.tx, opacity: s, whiteSpace: 'nowrap' }}>{b.valor}</div>
               </div>
             </div>
           );
@@ -296,15 +304,15 @@ export function Grafica({ e, P }) {
   return (
     <AbsoluteFill>
       <svg width={W} height={H} style={{ position: 'absolute', inset: 0 }}>
-        <rect x={x0 - 20} y={y0 - 20} width={x1 - x0 + 40} height={y1 - y0 + 40} rx="30" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.18)" strokeWidth="2" />
-        {Array.from({ length: Math.floor((xmax - xmin) / paso) + 1 }, (_, i) => { const xv = Math.ceil(xmin) + i * paso; return <line key={'gx' + i} x1={X(xv)} x2={X(xv)} y1={y0} y2={y1} stroke="rgba(255,255,255,.08)" strokeWidth="2" />; })}
-        {ymin < 0 && ymax > 0 && <line x1={x0} x2={x1} y1={Y(0)} y2={Y(0)} stroke="rgba(255,255,255,.55)" strokeWidth="4" />}
-        {xmin < 0 && xmax > 0 && <line x1={X(0)} x2={X(0)} y1={y0} y2={y1} stroke="rgba(255,255,255,.55)" strokeWidth="4" />}
+        <rect x={x0 - 20} y={y0 - 20} width={x1 - x0 + 40} height={y1 - y0 + 40} rx="30" fill={tono(P.tx, 0.06)} stroke={tono(P.tx, 0.18)} strokeWidth="2" />
+        {Array.from({ length: Math.floor((xmax - xmin) / paso) + 1 }, (_, i) => { const xv = Math.ceil(xmin) + i * paso; return <line key={'gx' + i} x1={X(xv)} x2={X(xv)} y1={y0} y2={y1} stroke={tono(P.tx, 0.08)} strokeWidth="2" />; })}
+        {ymin < 0 && ymax > 0 && <line x1={x0} x2={x1} y1={Y(0)} y2={Y(0)} stroke={tono(P.tx, 0.55)} strokeWidth="4" />}
+        {xmin < 0 && xmax > 0 && <line x1={X(0)} x2={X(0)} y1={y0} y2={y1} stroke={tono(P.tx, 0.55)} strokeWidth="4" />}
         <path d={d} fill="none" stroke={P.a} strokeOpacity=".35" strokeWidth="26" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={L} strokeDashoffset={L * (1 - p)} />
         <path d={d} fill="none" stroke={P.a} strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={L} strokeDashoffset={L * (1 - p)} />
         {p > 0 && <circle cx={tip[0]} cy={tip[1]} r={20} fill="#fff" stroke={P.b} strokeWidth="8" />}
       </svg>
-      {p > 0 && <div style={{ position: 'absolute', left: Math.min(tip[0] + 26, W - 380), top: tip[1] - 80, fontFamily: MONO, fontWeight: 800, fontSize: 40, color: '#fff', background: 'rgba(0,0,0,.5)', padding: '6px 16px', borderRadius: 14 }}>({pts[idx][0]}, {pts[idx][1].toLocaleString('en-US', { maximumFractionDigits: 2 })})</div>}
+      {p > 0 && <div style={{ position: 'absolute', left: Math.min(tip[0] + 26, W - 380), top: tip[1] - 80, fontFamily: MONO, fontWeight: 800, fontSize: 40, color: P.tx, background: 'rgba(0,0,0,.5)', padding: '6px 16px', borderRadius: 14 }}>({pts[idx][0]}, {pts[idx][1].toLocaleString('en-US', { maximumFractionDigits: 2 })})</div>}
       <div style={{ position: 'absolute', left: x0, top: y0 - (v ? 6 : 4), padding: '10px 26px', fontFamily: MONO, fontWeight: 800, fontSize: v ? 54 : 50, color: P.a }}>{e.etiqueta || e.funcion}</div>
     </AbsoluteFill>
   );
@@ -324,16 +332,77 @@ export function Cta({ e, P }) {
         return <div key={i} style={{ position: 'absolute', left: W / 2 - 300, top: (v ? H * 0.24 : H * 0.36) - 300, width: 600, height: 600, borderRadius: '50%', border: `6px solid ${P.a}`, opacity: 1 - k, transform: `scale(${0.5 + k * 1.6})` }} />;
       })}
       <div style={{ position: 'absolute', left: 0, right: 0, top: v ? H * 0.15 : H * 0.18, textAlign: 'center', transform: `scale(${s * pulso}) rotate(${(1 - s) * -12 - 3}deg)` }}>
-        <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: v ? 210 : 190, color: P.a, WebkitTextStroke: '6px #0b0420', textShadow: `0 14px 0 ${P.b}, 0 30px 60px rgba(0,0,0,.6)` }}>¡TE TOCA!</span>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: v ? 210 : 190, color: P.a, WebkitTextStroke: 'var(--mtx-trazo-texto)', textShadow: 'var(--mtx-sombra-texto)' }}>¡TE TOCA!</span>
       </div>
       <div style={{ position: 'absolute', left: W * 0.08, right: W * 0.08, top: v ? H * 0.33 : H * 0.48, textAlign: 'center', opacity: sp(10), transform: `translateY(${(1 - sp(10)) * 80}px)` }}>
-        <div style={{ ...vidrio(P), display: 'inline-block', padding: v ? '26px 40px' : '24px 46px', fontFamily: FUENTE, fontWeight: 800, fontSize: v ? 58 : 52, color: '#fff' }}>{e.texto}</div>
+        <div style={{ ...vidrio(P), display: 'inline-block', padding: v ? '26px 40px' : '24px 46px', fontFamily: FUENTE, fontWeight: 800, fontSize: v ? 58 : 52, color: P.tx }}>{e.texto}</div>
       </div>
       <div style={{ position: 'absolute', left: 0, right: 0, top: v ? H * 0.47 : H * 0.7, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: v ? 40 : 36, color: '#fff', opacity: sp(18), letterSpacing: '.06em' }}>{v ? 'RESOLVELO ABAJO' : 'RESOLVÉ EL RETO ABAJO DEL VIDEO'}</div>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: v ? 40 : 36, color: P.tx, opacity: sp(18), letterSpacing: '.06em' }}>{v ? 'EL RETO SALE AL TERMINAR' : 'EL RETO APARECE AL TERMINAR EL VIDEO'}</div>
         {[0, 1, 2].map((i) => <div key={i} style={{ fontSize: 70, lineHeight: 0.6, color: P.a, opacity: 0.35 + 0.65 * Math.max(0, Math.sin((f - i * 4) / 5)), transform: `translateY(${Math.sin((f - i * 4) / 5) * 8}px)` }}>⌄</div>)}
       </div>
       <Mascota x={v ? W * 0.18 : W * 0.12} y={v ? H * 0.52 : H * 0.66} size={v ? 220 : 220} P={P} palabras={e.palabras} saluda mirar={1} delay={6} />
     </AbsoluteFill>
   );
 }
+
+
+// ---------- PREGUNTA dentro del video (if-else) ----------
+/** Rectangulos de las opciones en coordenadas del video: el reproductor pone botones encima, justo ahi. */
+export function layoutPregunta(W, H, n) {
+  const v = H > W;
+  if (v) { const w = W * 0.84, h = 150, g = 34, y0 = H * 0.36; return Array.from({ length: n }, (_, i) => ({ x: (W - w) / 2, y: y0 + i * (h + g), w, h })); }
+  const g = 36, w = (W * 0.86 - g * (n - 1)) / n, h = 230, y0 = H * 0.45;
+  return Array.from({ length: n }, (_, i) => ({ x: W * 0.07 + i * (w + g), y: y0, w, h }));
+}
+export function Pregunta({ e, P }) {
+  const f = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const sp = useSp();
+  const { W, H, v } = useVert();
+  const elecciones = useContext(EleccionesCtx);
+  const eleccion = elecciones?.[e.i];
+  const ops = (e.opciones || []).slice(0, 3);
+  const rects = layoutPregunta(W, H, ops.length);
+  const enRespuesta = f >= e.q;
+  const fr = f - e.q;
+  const bien = eleccion === undefined || eleccion === e.correcta;
+  const VERDE = '#3bdc7a', ROJO = '#ff5b6b';
+  const golpe = enRespuesta ? sp(e.q, { damping: 8 }) : 0;
+  const temblor = enRespuesta && !bien ? Math.sin(fr * 2.2) * interpolate(fr, [0, 18], [18, 0], clamp) : 0;
+  return (
+    <AbsoluteFill>
+      <div style={{ position: 'absolute', top: v ? 150 : 60, left: 0, right: 0, textAlign: 'center' }}><Chip P={P} style={{ fontSize: v ? 36 : 30 }}>¿Qué harías vos?</Chip></div>
+      <div style={{ position: 'absolute', left: W * 0.07, right: W * 0.07, top: v ? H * 0.15 : H * 0.17, height: v ? H * 0.19 : H * 0.24, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontFamily: DISPLAY, fontWeight: 800, fontSize: v ? 70 : 64, lineHeight: 1.12, color: P.tx, opacity: sp(4), textShadow: 'var(--mtx-sombra-texto)' }}>{e.pregunta}</div>
+      {ops.map((o, i) => {
+        const r = rects[i];
+        const s = sp(10 + i * 6, { damping: 13 });
+        const esCorrecta = i === e.correcta, esElegida = i === eleccion;
+        let borde = tono(P.tx, 0.35), fondo = 'var(--mtx-panel-bg)', marca = null;
+        if (enRespuesta) {
+          if (esCorrecta) { borde = VERDE; fondo = tono(VERDE, 0.22); marca = '✓'; }
+          else if (esElegida) { borde = ROJO; fondo = tono(ROJO, 0.2); marca = '✗'; }
+          else { fondo = tono(P.tx, 0.03); }
+        } else {
+          const pulso = 0.5 + 0.5 * Math.sin((f - i * 8) / 7);
+          borde = tono(P.a, 0.4 + pulso * 0.5);
+        }
+        const opac = enRespuesta && !esCorrecta && !esElegida ? 0.35 : 1;
+        return (
+          <div key={i} style={{ position: 'absolute', left: r.x, top: r.y, width: r.w, height: r.h, borderRadius: 'var(--mtx-panel-radio)', border: `4px solid ${borde}`, background: fondo, boxShadow: enRespuesta && esCorrecta ? `0 0 40px ${VERDE}88` : 'var(--mtx-panel-sombra)', display: 'flex', alignItems: 'center', gap: 24, padding: '0 34px', opacity: s * opac, transform: `translateY(${(1 - s) * 80}px) translateX(${esElegida ? temblor : 0}px) scale(${enRespuesta && esCorrecta ? 1 + golpe * 0.04 : 1})` }}>
+            <div style={{ width: v ? 74 : 70, height: v ? 74 : 70, flex: 'none', borderRadius: '50%', display: 'grid', placeItems: 'center', fontFamily: DISPLAY, fontWeight: 900, fontSize: 40, background: marca ? (marca === '✓' ? VERDE : ROJO) : P.a, color: '#0b0420' }}>{marca || 'ABC'[i]}</div>
+            <div style={{ fontFamily: FUENTE, fontWeight: 800, fontSize: v ? 50 : 46, color: P.tx, lineHeight: 1.15 }}>{o}</div>
+          </div>
+        );
+      })}
+      {!enRespuesta && <div style={{ position: 'absolute', left: 0, right: 0, top: v ? rects.at(-1).y + rects.at(-1).h + 40 : rects[0].y + rects[0].h + 40, textAlign: 'center', fontFamily: DISPLAY, fontWeight: 700, fontSize: v ? 38 : 32, color: P.tx === '#1d2b5a' ? P.c : P.a, opacity: 0.6 + 0.4 * Math.sin(f / 6) }}>👆 TOCÁ TU RESPUESTA</div>}
+      {enRespuesta && (
+        <div style={{ position: 'absolute', left: 0, right: 0, top: v ? H * 0.115 : H * 0.06, textAlign: 'center', transform: `scale(${golpe}) rotate(${bien ? -3 : 3}deg)` }}>
+          <span style={{ display: 'inline-block', fontFamily: DISPLAY, fontWeight: 900, fontSize: v ? 120 : 110, color: eleccion === undefined ? P.a : bien ? VERDE : ROJO, textShadow: '0 10px 30px rgba(0,0,0,.45)', background: E_FONDO(P), padding: '0 .3em', borderRadius: 24 }}>{eleccion === undefined ? 'RESPUESTA' : bien ? '¡EXACTO!' : '¡NO! 😬'}</span>
+        </div>
+      )}
+      {enRespuesta && bien && eleccion !== undefined && <Confeti x={W / 2} y={H * 0.25} inicio={e.q + 4} P={P} n={50} />}
+    </AbsoluteFill>
+  );
+}
+const E_FONDO = (P) => tono(P.f1, 0.75);

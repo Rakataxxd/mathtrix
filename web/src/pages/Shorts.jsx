@@ -23,7 +23,7 @@ function Item({ v, activo }) {
   return (
     <div className="short">
       <div className="caja">
-        {activo && full ? <Reproductor ref={ref} video={full} controles={toque} loop estilo={{ height: '100%', width: '100%' }} /> : <Poster v={v} vert />}
+        {activo && full ? <Reproductor ref={ref} video={full} controles={toque} estiloCaja={{ height: '100%', aspectRatio: '9/16', maxWidth: '100%', margin: '0 auto' }} /> : <Poster v={v} vert />}
         {activo && full && !toque && <div className="tocar" onClick={() => { gesto = true; setToque(true); }}><div className="btn lima" style={{ height: 64, padding: '0 28px', fontSize: 18 }}><Play fill="#000" size={22} />Tocá para ver</div></div>}
         <div className="info">
           <div className="fila"><Avatar nombre={v.autor} color={v.autor_color} size={30} /><b style={{ fontSize: 14 }}>{v.autor}</b>{v.motivo && <span className="badge lima">{v.motivo}</span>}</div>
@@ -33,7 +33,7 @@ function Item({ v, activo }) {
       <div className="lado">
         <div><button onClick={darLike} className={like === 1 ? 'on' : ''} aria-label="Me gusta"><Heart fill={like === 1 ? 'var(--lima)' : 'none'} /></button><small>{likes}</small></div>
         <div><Link to={`/ver/${v.id}#comentarios`} aria-label="Comentarios"><MessageCircle /></Link><small>Coment.</small></div>
-        <div><Link to={`/ver/${v.id}#quiz`} aria-label="Reto" style={{ background: 'var(--lima)', color: '#000' }}><Target /></Link><small>Reto</small></div>
+        <div><button aria-label="Reto" style={{ background: 'var(--lima)', color: '#000' }} onClick={() => ref.current?.abrirReto?.()}><Target /></button><small>Reto</small></div>
         <div><button aria-label="Compartir" onClick={() => navigator.clipboard?.writeText(location.origin + '/ver/' + v.id)}><Share2 /></button><small>Compartir</small></div>
       </div>
     </div>

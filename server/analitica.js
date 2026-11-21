@@ -35,6 +35,9 @@ export function analiticaLeccion(l) {
     const esc = tl.escenas?.find((e) => f >= e.inicio && f < e.inicio + e.duracion);
     if (esc) abandono[esc.tipo] = (abandono[esc.tipo] || 0) + 1;
   }
+  // preguntas dentro del video (if-else): cuantos acertaron en el momento
+  const resps = ids.length ? todos(`SELECT usuario_id, extra FROM eventos WHERE video_id IN (${ph}) AND tipo='respuesta'`, ...ids).map((r) => ({ u: r.usuario_id, ok: !!json(r.extra, {}).ok })) : [];
+  const enVideo = { total: resps.length, ok: resps.filter((r) => r.ok).length };
   // quiz
   const ultimoPorAlumno = new Map();
   for (const i of intentos) ultimoPorAlumno.set(i.usuario_id, i);
@@ -54,7 +57,7 @@ export function analiticaLeccion(l) {
     return {
       ...a, videos: vs.length, video_id: vs[0]?.id, gancho: vs[0]?.titulo, visto, pausas: ss.reduce((x, s) => x + s.pausas, 0), rebobinadas: ss.reduce((x, s) => x + s.rebob, 0),
       minutos: +(ss.reduce((x, s) => x + s.lat, 0) * 5 / 60).toFixed(1), puntaje: it ? Math.round(it.puntaje * 100) : null, aciertos: it?.aciertos, total: it?.total,
-      intentos: intentos.filter((i) => i.usuario_id === a.id).length, estado, aprende: pf.aprende || [], mejorEstilo: st.mejorEstilo, traba: st.rebobina?.[0] ? NOMBRE_ESCENA[st.rebobina[0]] : null,
+      intentos: intentos.filter((i) => i.usuario_id === a.id).length, enVideo: (() => { const r = resps.filter((x) => x.u === a.id); return r.length ? `${r.filter((x) => x.ok).length}/${r.length}` : null; })(), estado, aprende: pf.aprende || [], mejorEstilo: st.mejorEstilo, traba: st.rebobina?.[0] ? NOMBRE_ESCENA[st.rebobina[0]] : null,
     };
   });
 
@@ -75,6 +78,7 @@ export function analiticaLeccion(l) {
     const pn = preguntas.numerica[0] / preguntas.numerica[1], pc = preguntas.concepto[0] / preguntas.concepto[1];
     ins.push({ tipo: 'quiz', txt: Math.abs(pn - pc) < 0.1 ? `Rinden parejo en cálculo (${Math.round(pn * 100)} %) y en conceptos (${Math.round(pc * 100)} %).` : pn < pc ? `Entienden la idea (${Math.round(pc * 100)} % en conceptos) pero fallan al calcular (${Math.round(pn * 100)} %). Practiquen operaciones.` : `Calculan bien (${Math.round(pn * 100)} %) pero cuesta el concepto (${Math.round(pc * 100)} %). Expliquen el porqué.` });
   }
+  if (enVideo.total) ins.push({ tipo: 'quiz', txt: `En las preguntas dentro del video acertaron ${Math.round(enVideo.ok / enVideo.total * 100)} % (${enVideo.ok} de ${enVideo.total} respuestas en el momento).` });
   const reforzar = filas.filter((f) => f.estado === 'reforzar').map((f) => f.nombre.split(' ')[0]);
   if (reforzar.length) ins.push({ tipo: 'alumnos', txt: `Necesitan refuerzo: ${reforzar.slice(0, 6).join(', ')}${reforzar.length > 6 ? '…' : ''}.` });
   const sin = filas.filter((f) => f.estado === 'sin_video').length;
@@ -84,6 +88,7 @@ export function analiticaLeccion(l) {
   const mejor = Object.entries(estilos).map(([k, a]) => [k, a.reduce((x, y) => x + y, 0) / a.length]).sort((a, b) => b[1] - a[1])[0];
   if (mejor) ins.push({ tipo: 'estilo', txt: `Los ganchos de estilo «${mejor[0]}» dan mejores resultados en el test (${Math.round(mejor[1] * 100)} %).` });
 
+  resumen.en_video = enVideo.total ? Math.round(enVideo.ok / enVideo.total * 100) : null;
   return { leccion: { id: l.id, titulo: l.titulo, tema: l.tema }, resumen, retencion, trabas, abandono, preguntas, distrib, alumnos: filas, insights: ins };
 }
 

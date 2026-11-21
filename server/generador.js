@@ -9,7 +9,7 @@ import { SISTEMA_GUION, promptGuion, TIPOS, PALETAS } from './prompts.js';
 import { DATA, uno, todos, correr, json } from './db.js';
 
 const FPS = 30;
-const MIN = { gancho: 3.4, datos: 4, formula: 3.6, paso: 2.8, resultado: 4.2, iconos: 4, fraccion: 4.2, comparacion: 4.2, grafica: 4.6, cta: 4.4 };
+const MIN = { pregunta: 3.6, gancho: 3.4, datos: 4, formula: 3.6, paso: 2.8, resultado: 4.2, iconos: 4, fraccion: 4.2, comparacion: 4.2, grafica: 4.6, cta: 4.4 };
 export const trabajos = new Map();
 
 function emitir(tr, ev) {
@@ -62,7 +62,15 @@ function normalizar(g, formato) {
   g.calculos = Array.isArray(g.calculos) ? g.calculos.filter((c) => c && c.id && (c.calc || c.resolver)) : [];
   let esc = (Array.isArray(g.escenas) ? g.escenas : []).filter((e) => e && TIPOS.includes(e.tipo));
   esc.forEach((e) => { e.narracion = String(e.narracion || e.texto || e.nota || '').slice(0, 320); });
-  esc = esc.filter((e) => e.narracion);
+  esc = esc.filter((e) => e.narracion).filter((e) => {
+    if (e.tipo !== 'pregunta') return true;
+    e.opciones = (Array.isArray(e.opciones) ? e.opciones : []).slice(0, 3).map(String);
+    if (e.opciones.length < 2 || !e.pregunta) return false;
+    e.correcta = Math.max(0, Math.min(e.opciones.length - 1, parseInt(e.correcta) || 0));
+    e.si_bien = String(e.si_bien || '¡Exacto! Bien pensado.').slice(0, 240);
+    e.si_mal = String(e.si_mal || `¡No! La correcta era: ${e.opciones[e.correcta]}.`).slice(0, 300);
+    return true;
+  });
   if (esc.length < 4) throw new Error('guion con pocas escenas');
   if (esc[0].tipo !== 'gancho') esc.unshift({ tipo: 'gancho', texto: g.titulo.toUpperCase(), emoji: esc.find((e) => e.emoji)?.emoji || '🤯', narracion: g.titulo });
   if (esc.at(-1).tipo !== 'cta') esc.push({ tipo: 'cta', texto: '¿Te animás con el reto?', narracion: 'Ahora te toca a vos. Resolvé el reto de abajo.' });
@@ -95,7 +103,8 @@ function sustituir(g, valores) {
     faltan++; return '?';
   });
   for (const e of g.escenas) {
-    for (const k of ['texto', 'narracion', 'expr', 'formula', 'nota', 'valor', 'unidad', 'comparacion', 'titulo', 'etiqueta', 'cantidad']) if (e[k] != null) e[k] = sub(e[k]);
+    for (const k of ['texto', 'narracion', 'expr', 'formula', 'nota', 'valor', 'unidad', 'comparacion', 'titulo', 'etiqueta', 'cantidad', 'pregunta', 'si_bien', 'si_mal']) if (e[k] != null) e[k] = sub(e[k]);
+    if (Array.isArray(e.opciones)) e.opciones = e.opciones.map(sub);
     if (Array.isArray(e.datos)) e.datos = e.datos.slice(0, 4).map((d) => ({ ...d, valor: sub(d.valor), etiqueta: sub(d.etiqueta) }));
     if (Array.isArray(e.barras)) e.barras = e.barras.slice(0, 4).map((b) => ({ ...b, etiqueta: sub(b.etiqueta), valor: sub(b.valor), num: num(sub(b.valor)) ?? 0 }));
     if (e.tipo === 'iconos') e.n = Math.max(1, Math.min(500, Math.round(num(e.cantidad) ?? 10)));
@@ -137,6 +146,10 @@ async function ponerVoz(g, voz, formato) {
     e._voz = key;
     return { key, texto, voz, rate };
   });
+  const clave = (texto) => createHash('sha1').update(voz + rate + texto).digest('hex').slice(0, 20);
+  for (const e of g.escenas) if (e.tipo === 'pregunta') for (const k of ['si_bien', 'si_mal']) {
+    const texto = paraVoz(e[k]); e['_' + k] = clave(texto); frases.push({ key: e['_' + k], texto, voz, rate });
+  }
   const r = await motor('tts', { dir: join(DATA, 'media', 'tts'), frases }, 90000);
   let fallos = 0;
   for (const e of g.escenas) {
@@ -144,6 +157,12 @@ async function ponerVoz(g, voz, formato) {
     if (v && !v.error) { e.audio = '/media/tts/' + v.audio; e.palabras = v.palabras; e.voz_s = v.duracion; }
     else { fallos++; e.voz_s = Math.max(1.5, paraVoz(e.narracion).split(' ').length / 2.7); e.palabras = estimarPalabras(e.narracion, e.voz_s); }
     delete e._voz;
+    if (e.tipo === 'pregunta') for (const k of ['si_bien', 'si_mal']) {
+      const v2 = r[e['_' + k]], suf = k === 'si_bien' ? 'bien' : 'mal';
+      if (v2 && !v2.error) { e['audio_' + suf] = '/media/tts/' + v2.audio; e['palabras_' + suf] = v2.palabras; e['voz_' + suf] = v2.duracion; }
+      else { e['voz_' + suf] = Math.max(1.5, paraVoz(e[k]).split(' ').length / 2.7); e['palabras_' + suf] = estimarPalabras(e[k], e['voz_' + suf]); }
+      delete e['_' + k];
+    }
   }
   return fallos;
 }
@@ -153,12 +172,18 @@ function estimarPalabras(txt, dur) {
   return w.map((x, i) => ({ w: x, t: +(i * dur / w.length).toFixed(3), d: +(dur / w.length * 0.9).toFixed(3) }));
 }
 
-function timeline(g, formato, graf) {
+function timeline(g, formato, graf, estilo) {
   const W = formato === 'vertical' ? 1080 : 1920, H = formato === 'vertical' ? 1920 : 1080;
   let cursor = 0, prevExpr = null;
   const escenas = g.escenas.map((e, i) => {
-    const dur = Math.round(Math.max(MIN[e.tipo] || 3, (e.voz_s || 0) + 0.5) * FPS);
+    let dur = Math.round(Math.max(MIN[e.tipo] || 3, (e.voz_s || 0) + 0.5) * FPS);
     const s = { ...e, i, inicio: cursor, duracion: dur };
+    if (e.tipo === 'pregunta') {
+      s.q = Math.round(Math.max(3.2, (e.voz_s || 0) + 0.35) * FPS);
+      s.duracion = dur = s.q + Math.round(Math.max(2.8, Math.max(e.voz_bien || 0, e.voz_mal || 0) + 0.7) * FPS);
+      s.fb_bien = Math.round(Math.max(2.4, (e.voz_bien || 0) + 0.7) * FPS); s.fb_mal = Math.round(Math.max(2.8, (e.voz_mal || 0) + 0.7) * FPS);
+      delete s.voz_bien; delete s.voz_mal;
+    }
     delete s.voz_s; delete s.soloLargo;
     if (e.tipo === 'formula') prevExpr = e.formula;
     if (e.tipo === 'paso') { s.desde = prevExpr; prevExpr = e.expr; }
@@ -167,7 +192,7 @@ function timeline(g, formato, graf) {
     return s;
   });
   const gancho = escenas[0];
-  return { fps: FPS, ancho: W, alto: H, formato, paleta: g.paleta, titulo: g.titulo, emoji: gancho.emoji || '🤯', escenas, duracion: cursor };
+  return { fps: FPS, ancho: W, alto: H, formato, estilo: estilo || 'ilustrado', paleta: g.paleta, titulo: g.titulo, emoji: gancho.emoji || '🤯', escenas, duracion: cursor };
 }
 
 
@@ -212,6 +237,10 @@ function vozAdelantada(voz, rate) {
         if (nar.includes('?') && /\{/.test(js) && !/\?/.test(e.narracion || '')) continue;
         const texto = paraVoz(nar);
         frases.push({ key: createHash('sha1').update(voz + rate + texto).digest('hex').slice(0, 20), texto, voz, rate });
+        if (e.tipo === 'pregunta') for (const k of ['si_bien', 'si_mal']) if (e[k]) {
+          const t2 = paraVoz(String(e[k]).slice(0, 300).replace(/\{\s*(\w+)\s*\}/g, (_, id) => valores[id]?.texto ?? '?'));
+          frases.push({ key: createHash('sha1').update(voz + rate + t2).digest('hex').slice(0, 20), texto: t2, voz, rate });
+        }
       } catch {}
     }
     if (frases.length) motor('tts', { dir: join(DATA, 'media', 'tts'), frases }, 90000).catch(() => {});
@@ -261,7 +290,7 @@ async function escribirGuion(tr, ctx) {
   return { g, r, motor: 'plantilla' };
 }
 
-export function generarVideo({ usuario, leccion, formato = 'vertical', publico = true }) {
+export function generarVideo({ usuario, leccion, formato = 'vertical', publico = true, estilo }) {
   const id = randomUUID();
   const tr = { id, inicio: Date.now(), eventos: [], oyentes: new Set(), estado: 'corriendo' };
   trabajos.set(id, tr);
@@ -274,11 +303,12 @@ export function generarVideo({ usuario, leccion, formato = 'vertical', publico =
       emitir(tr, { etapa: 'perfil', msg: `Leyendo el perfil de ${usuario.nombre.split(' ')[0]}: ${[...(perfil.gustos || []).slice(0, 3), ...(perfil.idolos || []).slice(0, 2)].join(', ') || 'sin perfil'}` });
       const evitar = todos('SELECT titulo FROM videos WHERE autor_id=? ORDER BY id DESC LIMIT 8', usuario.id).map((v) => v.titulo);
       const voz = perfil.voz === 'Marta' ? 'es-GT-MartaNeural' : 'es-GT-AndresNeural';
-      const { g, r, motor: motorUsado } = await escribirGuion(tr, { formato, leccion, alumno: usuario, perfil, stats, evitar, voz });
+      estilo = estilo || perfil.estilo || 'ilustrado';
+      const { g, r, motor: motorUsado } = await escribirGuion(tr, { formato, leccion, alumno: usuario, perfil, stats, evitar, voz, estilo });
       emitir(tr, { etapa: 'voz', msg: `Voz de ${g.escenas.length} escenas (se fue grabando mientras Haiku escribía)…` });
       const fallos = await ponerVoz(g, voz, formato);
       if (fallos) emitir(tr, { etapa: 'aviso', msg: `${fallos} escenas sin voz (sin internet): van con subtítulos` });
-      const tl = timeline(g, formato, r.valores);
+      const tl = timeline(g, formato, r.valores, tr.estilo || estilo);
       const quiz = armarQuiz(g, r.valores, Date.now());
       const ms = Date.now() - tr.inicio;
       const res = correr(`INSERT INTO videos(leccion_id, autor_id, titulo, tema, etiquetas, estilo, formato, timeline, quiz, duracion, motor, publico, verificado, ms_generacion)

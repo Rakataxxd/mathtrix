@@ -1,7 +1,8 @@
 // Capas visuales comunes: fondo con profundidad, camara viva, acabado, subtitulos, mascota, emoji.
-import React, { useState } from 'react';
+import React, { useState, createContext, useContext } from 'react';
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, random } from 'remotion';
 import { noise2D } from '@remotion/noise';
+import { useEstilo, useClaveEstilo, filtroEmoji, FONDOS, AcabadoEstilo } from './estilos.jsx';
 
 export const PALETAS = {
   neon: { f1: '#0b0420', f2: '#34106e', a: '#b6ff3b', b: '#ff4fd8', c: '#7af8ff' },
@@ -12,9 +13,11 @@ export const PALETAS = {
   espacio: { f1: '#050617', f2: '#1f2470', a: '#7af8ff', b: '#a98bff', c: '#d6d9ff' },
   fuego: { f1: '#1a0404', f2: '#7a1a08', a: '#ffb23b', b: '#ff3b3b', c: '#ffd9b3' },
 };
-export const FUENTE = "'Plus Jakarta Sans', system-ui, sans-serif";
-export const DISPLAY = "'Unbounded', 'Plus Jakarta Sans', sans-serif";
-export const MONO = "'JetBrains Mono', ui-monospace, monospace";
+export const FUENTE = "var(--mtx-cuerpo, 'Plus Jakarta Sans'), system-ui, sans-serif";
+export const DISPLAY = "var(--mtx-display, 'Unbounded'), sans-serif";
+export const MONO = "var(--mtx-mate, 'JetBrains Mono'), ui-monospace, monospace";
+export const PaletaCtx = createContext(null);
+export const usePaleta = () => useContext(PaletaCtx);
 export const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' };
 
 export function useSp() {
@@ -26,35 +29,64 @@ export function useVert() { const { width, height } = useVideoConfig(); return {
 
 // ---------- emoji animado de Noto (cacheado por el servidor) ----------
 export const codEmoji = (e) => [...String(e || '')].map((c) => c.codePointAt(0).toString(16)).join('_');
-export function Emoji({ e, size = 200, style }) {
+export function Emoji({ e, size = 200, style, ligero, sinFiltro }) {
   const [err, setErr] = useState(false);
+  const E = useEstilo(); const clave = useClaveEstilo(); const P = usePaleta();
   if (!e) return null;
+  const filtro = sinFiltro || !P ? undefined : filtroEmoji(clave, E, P, ligero);
   const base = typeof window !== 'undefined' && window.__MTX_BASE ? window.__MTX_BASE : '';
   if (err) return <div style={{ fontSize: size * 0.82, lineHeight: 1, width: size, height: size, textAlign: 'center', ...style }}>{e}</div>;
-  return <img src={`${base}/emoji/${codEmoji(e)}`} width={size} height={size} draggable={false} onError={() => setErr(true)} style={{ display: 'block', ...style }} alt="" />;
+  return <img src={`${base}/emoji/${codEmoji(e)}`} width={size} height={size} draggable={false} onError={() => setErr(true)} style={{ display: 'block', filter: filtro, ...style }} alt="" />;
 }
 
 /** Objeto ilustrado: halo de luz, sombra suave, flotacion y balanceo. */
 export function Objeto({ e, size = 360, x, y, delay = 0, P, halo = true, intensidad = 1 }) {
+  P = P || usePaleta();
   const f = useCurrentFrame();
   const sp = useSp();
-  const s = sp(delay, { damping: 9, mass: 0.7 });
+  const clave = useClaveEstilo();
+  const tranquilo = clave === 'manim' || clave === 'blueprint' || clave === 'tiza';
+  const s = sp(delay, { damping: tranquilo ? 16 : 9, mass: 0.7 });
+  intensidad *= tranquilo ? 0.35 : 1;
+  halo = halo && (clave === 'ilustrado' || clave === 'neon');
   const bob = Math.sin((f + delay) / 11) * 14 * intensidad;
   const rot = Math.sin((f + delay) / 17) * 5 * intensidad;
   return (
     <div style={{ position: 'absolute', left: x - size / 2, top: y - size / 2, width: size, height: size, transform: `scale(${s})` }}>
       {halo && <div style={{ position: 'absolute', inset: -size * 0.45, borderRadius: '50%', background: `radial-gradient(circle, ${P.a}55 0%, ${P.b}22 38%, transparent 68%)`, transform: `scale(${1 + Math.sin(f / 13) * 0.06})` }} />}
-      <div style={{ position: 'absolute', left: size * 0.16, right: size * 0.16, bottom: -size * 0.1, height: size * 0.13, borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(0,0,0,.55), transparent)', transform: `scaleX(${1 - bob / 140})` }} />
-      <div style={{ transform: `translateY(${bob}px) rotate(${rot}deg)`, filter: 'drop-shadow(0 18px 26px rgba(0,0,0,.45))' }}>
+      {(clave === 'ilustrado' || clave === 'neon' || clave === 'cuaderno') && <div style={{ position: 'absolute', left: size * 0.16, right: size * 0.16, bottom: -size * 0.1, height: size * 0.13, borderRadius: '50%', background: `radial-gradient(closest-side, ${clave === 'neon' ? P.b + '88' : clave === 'cuaderno' ? 'rgba(60,40,0,.18)' : 'rgba(0,0,0,.55)'}, transparent)`, transform: `scaleX(${1 - bob / 140})` }} />}
+      {clave === 'blueprint' && <Cotas size={size} s={s} />}
+      <div style={{ transform: `translateY(${bob}px) rotate(${rot}deg)` }}>
         <Emoji e={e} size={size} />
       </div>
     </div>
   );
 }
 
+/** Lineas de cota del plano (blueprint). */
+function Cotas({ size, s }) {
+  const c = 'rgba(234,244,255,.75)';
+  return (
+    <svg width={size * 1.5} height={size * 1.5} style={{ position: 'absolute', left: -size * 0.25, top: -size * 0.25, overflow: 'visible', opacity: s }}>
+      <line x1={size * 0.75} y1={0} x2={size * 0.75} y2={size * 1.5} stroke={c} strokeWidth="1.5" strokeDasharray="10 6 2 6" />
+      <line x1={0} y1={size * 0.75} x2={size * 1.5} y2={size * 0.75} stroke={c} strokeWidth="1.5" strokeDasharray="10 6 2 6" />
+      <circle cx={size * 0.75} cy={size * 0.75} r={size * 0.62} fill="none" stroke={c} strokeWidth="1.5" strokeDasharray="4 8" />
+      <line x1={size * 0.25} y1={size * 1.42} x2={size * 1.25} y2={size * 1.42} stroke={c} strokeWidth="2" />
+      <line x1={size * 0.25} y1={size * 1.34} x2={size * 0.25} y2={size * 1.5} stroke={c} strokeWidth="2" />
+      <line x1={size * 1.25} y1={size * 1.34} x2={size * 1.25} y2={size * 1.5} stroke={c} strokeWidth="2" />
+      <text x={size * 0.75} y={size * 1.4 - 8} textAnchor="middle" fill={c} fontFamily="IBM Plex Mono" fontSize={size * 0.07}>FIG. 1</text>
+    </svg>
+  );
+}
+
 // ---------- fondo en tres capas ----------
 const GLIFOS = 'π∑√÷×±∞≈∫x²y³%∆θ0123456789+=−';
 export function Fondo({ P }) {
+  const clave = useClaveEstilo();
+  if (FONDOS[clave]) { const F = FONDOS[clave]; return <F P={P} />; }
+  return <FondoIlustrado P={P} />;
+}
+function FondoIlustrado({ P }) {
   const f = useCurrentFrame();
   const { W, H, v } = useVert();
   const cols = v ? 9 : 16;
@@ -81,6 +113,11 @@ export function Fondo({ P }) {
 
 /** Primer plano grande y borroso que se mueve mas rapido (profundidad). */
 export function PrimerPlano({ P }) {
+  const clave = useClaveEstilo();
+  if (clave !== 'ilustrado' && clave !== 'neon') return null;
+  return <PrimerPlanoDibujo P={P} />;
+}
+function PrimerPlanoDibujo({ P }) {
   const f = useCurrentFrame();
   const { W, H } = useVert();
   return (
@@ -95,11 +132,12 @@ export function PrimerPlano({ P }) {
 export function Camara({ dur, seed = 0, children }) {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const k = useEstilo().camara;
   const ent = spring({ frame: f, fps, config: { damping: 15, mass: 0.55 } });
   const sal = interpolate(f, [dur - 8, dur], [0, 1], clamp);
-  const push = interpolate(f, [0, dur], [1, 1.07]);
-  const nx = noise2D('cx' + seed, f / 85, 0) * 12, ny = noise2D('cy' + seed, 0, f / 85) * 12, rot = noise2D('cr' + seed, f / 110, 1) * 0.6;
-  const esc = push * interpolate(ent, [0, 1], [0.78, 1]) * (1 + sal * sal * 1.8);
+  const push = interpolate(f, [0, dur], [1, 1 + 0.07 * k]);
+  const nx = noise2D('cx' + seed, f / 85, 0) * 12 * k, ny = noise2D('cy' + seed, 0, f / 85) * 12 * k, rot = noise2D('cr' + seed, f / 110, 1) * 0.6 * k;
+  const esc = push * interpolate(ent, [0, 1], [1 - 0.22 * Math.min(1, k), 1]) * (1 + sal * sal * 1.8 * Math.min(1, k));
   return (
     <AbsoluteFill style={{ transform: `translate(${nx}px, ${ny}px) rotate(${rot}deg) scale(${esc})`, opacity: Math.min(1, ent * 1.6) * (1 - sal), filter: sal > 0.05 ? `blur(${sal * 14}px)` : undefined }}>
       {children}
@@ -110,6 +148,11 @@ export function Camara({ dur, seed = 0, children }) {
 const GRANO = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")`;
 /** Acabado: vineta, brillo, correccion de color y grano. */
 export function Acabado() {
+  const clave = useClaveEstilo();
+  if (clave !== 'ilustrado') return <AcabadoEstilo clave={clave} />;
+  return <AcabadoGrano />;
+}
+function AcabadoGrano() {
   const f = useCurrentFrame();
   return (
     <AbsoluteFill style={{ pointerEvents: 'none' }}>
@@ -124,6 +167,7 @@ export function Acabado() {
 function trozos(palabras, max) {
   const out = []; let cur = [];
   for (const p of palabras || []) {
+    if (p.corte && cur.length) { out.push(cur); cur = []; }
     cur.push(p);
     if (cur.length >= max || /[.,;:!?¿¡]$/.test(p.w)) { out.push(cur); cur = []; }
   }
@@ -135,7 +179,9 @@ export function Subtitulos({ palabras, P, abajo }) {
   const { fps } = useVideoConfig();
   const { W, v } = useVert();
   const t = f / fps;
-  const grupos = trozos(palabras, v ? 3 : 6);
+  const E = useEstilo();
+  const cap = E.cap;
+  const grupos = trozos(palabras, v ? cap.max : Math.min(6, cap.max * 2));
   let g = null, gi = -1;
   for (let i = 0; i < grupos.length; i++) if (t >= grupos[i][0].t - 0.05) { g = grupos[i]; gi = i; }
   if (!g) return null;
@@ -143,11 +189,12 @@ export function Subtitulos({ palabras, P, abajo }) {
   if (t > fin && gi === grupos.length - 1) return null;
   const pop = spring({ frame: f - Math.round(g[0].t * fps), fps, config: { damping: 11, mass: 0.45 } });
   return (
-    <div style={{ position: 'absolute', left: W * 0.06, right: W * 0.06, top: v ? (abajo ? '79%' : '64%') : undefined, bottom: v ? undefined : '7%', textAlign: 'center', transform: `scale(${0.82 + pop * 0.18})` }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0 .34em', fontFamily: DISPLAY, fontWeight: 800, fontSize: v ? 70 : 52, lineHeight: 1.15, letterSpacing: '-0.01em', textTransform: 'uppercase' }}>
+    <div style={{ position: 'absolute', left: W * 0.06, right: W * 0.06, top: v ? (abajo ? '79%' : '64%') : undefined, bottom: v ? undefined : '7%', textAlign: 'center', transform: `scale(${0.82 + pop * 0.18})`, display: 'flex', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0 .3em', fontFamily: cap.fuente === 'display' ? DISPLAY : cap.fuente === 'mate' ? MONO : FUENTE, fontWeight: cap.peso, fontSize: v ? cap.v : cap.h, lineHeight: 1.15, letterSpacing: cap.mayus ? '-0.01em' : 0, textTransform: cap.mayus ? 'uppercase' : 'none', ...(cap.caja ? { background: 'rgba(8,36,87,.85)', border: '2px solid #eaf4ff', padding: '8px 22px' } : {}) }}>
         {g.map((p, i) => {
           const act = t >= p.t - 0.03 && t < p.t + p.d + 0.08;
-          return <span key={i} style={{ display: 'inline-block', color: act ? P.a : '#fff', transform: `scale(${act ? 1.08 : 1}) translateY(${act ? -4 : 0}px)`, WebkitTextStroke: v ? '10px #000' : '8px #000', paintOrder: 'stroke fill', textShadow: '0 6px 18px rgba(0,0,0,.6)' }}>{p.w.replace(/[.,;:]$/, '')}</span>;
+          const conTrazo = cap.trazo !== '0';
+          return <span key={i} style={{ display: 'inline-block', color: act ? (cap.activo || P.a) : cap.color, background: act && cap.fondoActivo ? cap.fondoActivo : 'transparent', padding: cap.fondoActivo ? '0 .12em' : 0, borderRadius: 6, transform: `scale(${act ? 1.08 : 1}) translateY(${act ? -4 : 0}px)`, WebkitTextStroke: conTrazo ? (v ? '10px #000' : '8px #000') : 0, paintOrder: 'stroke fill', textShadow: cap.brillo ? `0 0 14px ${act ? P.a : P.b}, 0 0 34px ${act ? P.a : P.b}` : conTrazo ? '0 6px 18px rgba(0,0,0,.6)' : E.claro ? 'none' : '0 2px 10px rgba(0,0,0,.6)' }}>{p.w.replace(/[.,;:]$/, '')}</span>;
         })}
       </div>
     </div>
@@ -156,6 +203,11 @@ export function Subtitulos({ palabras, P, abajo }) {
 
 // ---------- mascota Trix: parpadea, mira y "habla" con la voz ----------
 export function Mascota({ x, y, size = 200, P, palabras, mirar = 0, saluda = false, salta = false, delay = 0 }) {
+  const E = useEstilo();
+  if (!E.mascota) return null;
+  return <MascotaDibujo {...{ x, y, size, P, palabras, mirar, saluda, salta, delay }} />;
+}
+function MascotaDibujo({ x, y, size, P, palabras, mirar, saluda, salta, delay }) {
   const f = useCurrentFrame();
   const { fps } = useVideoConfig();
   const sp = useSp();

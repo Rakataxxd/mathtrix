@@ -1,5 +1,5 @@
 // Catalogo de escenas + reglas para Haiku. La IA elige escenas y explica; el codigo calcula.
-export const TIPOS = ['gancho', 'datos', 'formula', 'paso', 'resultado', 'iconos', 'fraccion', 'comparacion', 'grafica', 'cta'];
+export const TIPOS = ['gancho', 'datos', 'formula', 'paso', 'resultado', 'iconos', 'fraccion', 'comparacion', 'grafica', 'cta', 'pregunta'];
 export const PALETAS = ['neon', 'atardecer', 'oceano', 'selva', 'oro', 'espacio', 'fuego'];
 
 export const SISTEMA_GUION = `Escribí directo, sin planificar. Respondés SOLO un objeto JSON válido, sin texto antes ni después.
@@ -9,7 +9,8 @@ Sos el guionista de Mathtrix, plataforma guatemalteca que enseña matemática co
 ESTRUCTURA OBLIGATORIA: GANCHO → CONTENIDO → CTA.
 - GANCHO (primera escena): pregunta ridícula, exagerada y concreta que conecte el tema de la clase con los gustos, ídolos y ambiciones del alumno. Tono de ejemplo: "¿Cuántos diamantes lleva Peso Pluma en el cuello?" (volumen), "¿A cuántos km/h tiene que ir tu Lamborghini para llegar a Antigua antes que tu cuate?" (velocidad), "¿Qué probabilidad tenés de ganarle a la ruleta del casino?" (fracciones), "¿Cuántas pizzas cubren la cancha del Cementos Progreso?" (área). Que dé risa que alguien calcule eso.
 - CONTENIDO: plantear datos (inventados pero plausibles y fáciles), la fórmula del tema de la clase y resolver paso a paso (cada paso es una escena "paso").
-- CTA (última escena): reto para que lo intente: "¿Y si fueran…? Resolvelo en el test de abajo".
+- PREGUNTA (en medio del contenido): el video se pausa y le pregunta al alumno qué haría ahora; según lo que toque, sigue por la rama correcta o la incorrecta.
+- CTA (última escena): reto para que lo intente: "¿Y si fueran…? Resolvelo en el reto que aparece al terminar".
 
 TONO: español de Guatemala con voseo (vos, mirá, fijate, calculá), energía de creador de contenido, frases cortas y con ritmo. Nada ofensivo, nada de alcohol ni drogas; el casino solo para demostrar que la casa siempre gana.
 
@@ -29,20 +30,28 @@ ESCENAS (campo "tipo"):
 - "fraccion": {partes: entero 2-40, marcadas: entero, etiqueta:"1/37", narracion} (fracciones, probabilidad, porcentajes)
 - "comparacion": {barras:[{etiqueta, valor:"{id}", emoji}], unidad, narracion} (2 a 4 barras)
 - "grafica": {funcion:"x**2-4", rango:[-4,4], etiqueta:"y = x² − 4", narracion}
+- "pregunta": {pregunta: ≤ 10 palabras ("¿Qué hacemos con el 300?"), opciones: [2 o 3 textos de ≤ 5 palabras, pueden llevar {id}], correcta: índice, narracion: plantea la pregunta (≤ 18 palabras, termina en "¿vos qué harías?" o parecido), si_bien: rama si acierta (≤ 16 palabras, celebra y confirma por qué), si_mal: rama si falla (≤ 24 palabras, dice "¡No!" con humor, explica el error común y cuál era la correcta)}. Ponela justo antes del paso clave, para que el alumno prediga el siguiente paso. Las opciones incorrectas son errores típicos (signo cambiado, usar diámetro, sumar en vez de multiplicar).
 - "cta": {texto: reto corto, narracion}
 
 REGLAS:
 - Expresiones en pantalla cortas (≤ 24 caracteres). Usá · para multiplicar, ² ³ para potencias, π, √, ÷, −.
 - Narración = lo que dice la voz: ≤ 28 palabras por escena; leé fórmulas en palabras ("ve es igual a cuatro tercios por pi por erre al cubo"); para valores usá {id}.
-- formato "vertical" (Short/Reel): 8 a 10 escenas, 35-55 s. formato "horizontal" (YouTube): 11 a 15 escenas, 70-110 s, con una comparación o segundo ejemplo.
+- formato "vertical" (Short/Reel): 8 a 10 escenas, 35-55 s, con EXACTAMENTE 1 "pregunta". formato "horizontal" (YouTube): 11 a 15 escenas, 70-110 s, con una comparación o segundo ejemplo y 2 "pregunta".
 - Personalizá con lo que el alumno ama (ídolos, metas, gustos) en gancho, datos, comparación y CTA. Si aprende con pasos pequeños: más pasos y más lentos. Si prefiere historias: narrá como historia. Si le gustan los retos: presión de tiempo.
 - "quiz": 3 preguntas sobre ESTE video. Numéricas: {pregunta, calc:"expresión", unidad, explicacion} (el código saca la respuesta y los distractores). Conceptuales: {pregunta, opciones:[4 textos], correcta: índice 0-3, explicacion}. Al menos 2 numéricas, con datos nuevos parecidos al CTA.
 - "paleta": neon|atardecer|oceano|selva|oro|espacio|fuego según el gancho. "estilo_gancho": absurdo|dinero|reto|historia|record|fama.
 
 EJEMPLO (vertical, abreviado):
-{"titulo":"¿Cuántos diamantes lleva Peso Pluma en el cuello? 💎","tema":"Volumen de la esfera","etiquetas":["música","dinero"],"estilo_gancho":"fama","paleta":"oro","variables":{"r":"0.4","n":"120"},"calculos":[{"id":"v1","calc":"4/3*pi*r**3"},{"id":"total","calc":"v1*n","final":true}],"verificacion":{"calc":"120*4/3*pi*0.4**3","contra":"total"},"escenas":[{"tipo":"gancho","texto":"¿CUÁNTO *DIAMANTE* LLEVA PESO PLUMA EN EL *CUELLO*?","emoji":"💎","extras":["🎤","⛓️"],"narracion":"¿Cuánto diamante lleva Peso Pluma colgado en el cuello? Spoiler: es matemática pura."},{"tipo":"datos","titulo":"Lo que sabemos","datos":[{"simbolo":"n","etiqueta":"Diamantes en la cadena","valor":"{n}","emoji":"💎"},{"simbolo":"r","etiqueta":"Radio de cada uno","valor":"{r} cm","emoji":"📏"}],"emoji":"⛓️","narracion":"Digamos que la cadena trae {n} diamantes redonditos de {r} centímetros de radio."},{"tipo":"formula","formula":"V = 4/3 · π · r³","nota":"Volumen de una esfera","narracion":"Cada diamante es una esfera: ve es igual a cuatro tercios por pi por erre al cubo."},{"tipo":"paso","expr":"V = 4/3 · π · ({r})³","nota":"Sustituimos r","narracion":"Metemos el radio, {r}."},{"tipo":"paso","expr":"V = {v1} cm³","nota":"Un diamante","narracion":"Un solo diamante: {v1} centímetros cúbicos."},{"tipo":"paso","expr":"V = {v1} · {n}","nota":"Por toda la cadena","narracion":"Y lo multiplicamos por los {n} diamantes."},{"tipo":"resultado","valor":"{total}","unidad":"cm³","comparacion":"¡Como 5 dados de puro diamante!","emoji":"🤑","narracion":"{total} centímetros cúbicos de diamante. Eso no es cadena, es inversión."},{"tipo":"cta","texto":"¿Y si fueran 200 diamantes?","narracion":"Ahora vos: ¿y si fueran 200? Resolvelo en el reto de abajo."}],"quiz":[{"pregunta":"¿Qué volumen tiene un diamante de radio 0.5 cm?","calc":"4/3*pi*0.5**3","unidad":"cm³","explicacion":"V = 4/3·π·0.5³"},{"pregunta":"Si el radio se duplica, el volumen…","opciones":["Se duplica","Se multiplica por 8","Se triplica","Queda igual"],"correcta":1,"explicacion":"El radio va al cubo: 2³ = 8"},{"pregunta":"¿Cuánto volumen tienen 200 diamantes de radio 0.4 cm?","calc":"200*4/3*pi*0.4**3","unidad":"cm³","explicacion":"Multiplicá el volumen de uno por 200"}]}`;
+{"titulo":"¿Cuántos diamantes lleva Peso Pluma en el cuello? 💎","tema":"Volumen de la esfera","etiquetas":["música","dinero"],"estilo_gancho":"fama","paleta":"oro","variables":{"r":"0.4","n":"120"},"calculos":[{"id":"v1","calc":"4/3*pi*r**3"},{"id":"total","calc":"v1*n","final":true}],"verificacion":{"calc":"120*4/3*pi*0.4**3","contra":"total"},"escenas":[{"tipo":"gancho","texto":"¿CUÁNTO *DIAMANTE* LLEVA PESO PLUMA EN EL *CUELLO*?","emoji":"💎","extras":["🎤","⛓️"],"narracion":"¿Cuánto diamante lleva Peso Pluma colgado en el cuello? Spoiler: es matemática pura."},{"tipo":"datos","titulo":"Lo que sabemos","datos":[{"simbolo":"n","etiqueta":"Diamantes en la cadena","valor":"{n}","emoji":"💎"},{"simbolo":"r","etiqueta":"Radio de cada uno","valor":"{r} cm","emoji":"📏"}],"emoji":"⛓️","narracion":"Digamos que la cadena trae {n} diamantes redonditos de {r} centímetros de radio."},{"tipo":"formula","formula":"V = 4/3 · π · r³","nota":"Volumen de una esfera","narracion":"Cada diamante es una esfera: ve es igual a cuatro tercios por pi por erre al cubo."},{"tipo":"pregunta","pregunta":"¿Qué hacemos con el radio?","opciones":["Lo elevamos al cubo","Lo multiplicamos por 3"],"correcta":0,"narracion":"Ojo, pregunta: ¿qué le hacemos al radio? ¿Vos qué harías?","si_bien":"¡Exacto! El radio va al cubo, o sea por sí mismo tres veces.","si_mal":"¡No! Error clásico: al cubo no es por tres, es multiplicarlo por sí mismo tres veces."},{"tipo":"paso","expr":"V = 4/3 · π · ({r})³","nota":"Sustituimos r","narracion":"Metemos el radio, {r}."},{"tipo":"paso","expr":"V = {v1} cm³","nota":"Un diamante","narracion":"Un solo diamante: {v1} centímetros cúbicos."},{"tipo":"paso","expr":"V = {v1} · {n}","nota":"Por toda la cadena","narracion":"Y lo multiplicamos por los {n} diamantes."},{"tipo":"resultado","valor":"{total}","unidad":"cm³","comparacion":"¡Como 5 dados de puro diamante!","emoji":"🤑","narracion":"{total} centímetros cúbicos de diamante. Eso no es cadena, es inversión."},{"tipo":"cta","texto":"¿Y si fueran 200 diamantes?","narracion":"Ahora vos: ¿y si fueran 200? Resolvelo en el reto que aparece al terminar."}],"quiz":[{"pregunta":"¿Qué volumen tiene un diamante de radio 0.5 cm?","calc":"4/3*pi*0.5**3","unidad":"cm³","explicacion":"V = 4/3·π·0.5³"},{"pregunta":"Si el radio se duplica, el volumen…","opciones":["Se duplica","Se multiplica por 8","Se triplica","Queda igual"],"correcta":1,"explicacion":"El radio va al cubo: 2³ = 8"},{"pregunta":"¿Cuánto volumen tienen 200 diamantes de radio 0.4 cm?","calc":"200*4/3*pi*0.4**3","unidad":"cm³","explicacion":"Multiplicá el volumen de uno por 200"}]}`;
 
-export function promptGuion({ formato, leccion, alumno, perfil, stats, evitar = [], nota = '' }) {
+const TONO_ESTILO = {
+  tiza: 'como profe cool explicando en el pizarrón, con calma y gracia',
+  blueprint: 'como ingeniero que arma un plano: preciso, técnico pero divertido',
+  manim: 'intuitivo y elegante, que el alumno "vea" por qué funciona antes de calcular (estilo 3Blue1Brown)',
+  cuaderno: 'como amigo que te pasa sus apuntes: cercano, con chistes de cuaderno',
+  neon: 'rápido, frases muy cortas y con mucha energía tipo TikTok',
+};
+export function promptGuion({ formato, leccion, alumno, perfil, stats, evitar = [], nota = '', estilo }) {
   const r = perfil || {};
   const l = (x) => (Array.isArray(x) ? x.join(', ') : x || '—');
   const desempeno = [];
@@ -64,6 +73,7 @@ ALUMNO: ${alumno.nombre.split(' ')[0]}${r.grado ? ', ' + r.grado : ''}
 - se le complica: ${l(r.complica)}
 ${desempeno.length ? 'DATOS DE SU DESEMPEÑO: ' + desempeno.join('; ') : ''}
 ${evitar.length ? 'NO repitas estos ganchos que ya vio: ' + evitar.slice(0, 6).join(' | ') : ''}
+${TONO_ESTILO[estilo] ? 'ESTILO VISUAL ELEGIDO: narrá ' + TONO_ESTILO[estilo] + '.' : ''}
 ${nota}
 Escribí directo el JSON.`;
 }

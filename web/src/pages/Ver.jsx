@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
-import { ThumbsUp, ThumbsDown, Share2, ShieldCheck, Cpu, School, Check } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Share2, ShieldCheck, Cpu, School, Check, Target, Palette } from 'lucide-react';
 import { api, hace, vistas } from '../api.js';
 import { Avatar, Poster } from '../components/ui.jsx';
 import { Reproductor } from '../components/Reproductor.jsx';
-import { Quiz, Comentarios } from '../components/Quiz.jsx';
+import { Comentarios } from '../components/Quiz.jsx';
+import { SelectorEstilo } from '../components/SelectorEstilo.jsx';
 
 export function Ver() {
   const { id } = useParams();
@@ -15,17 +16,19 @@ export function Ver() {
   const [like, setLike] = useState(0);
   const [likes, setLikes] = useState(0);
   const [copiado, setCopiado] = useState(false);
-  const quizRef = useRef();
+  const repRef = useRef();
+  const [estiloVer, setEstiloVer] = useState(null);
   const nuevo = new URLSearchParams(loc.search).get('nuevo');
 
   useEffect(() => {
     setV(null);
-    api('/videos/' + id).then((d) => { setV(d); setLike(d.mi_like); setLikes(d.likes); }).catch((e) => setErr(e.message));
+    api('/videos/' + id).then((d) => { setV(d); setLike(d.mi_like); setLikes(d.likes); setEstiloVer(d.timeline?.estilo || 'ilustrado'); }).catch((e) => setErr(e.message));
     api('/feed').then((l) => setRecs(l.filter((x) => String(x.id) !== id).slice(0, 14))).catch(() => {});
     window.scrollTo(0, 0);
   }, [id]);
   useEffect(() => {
-    if (v && loc.hash) setTimeout(() => document.getElementById(loc.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' }), 300);
+    if (v && loc.hash === '#quiz') setTimeout(() => repRef.current?.abrirReto?.(), 400);
+    else if (v && loc.hash) setTimeout(() => document.getElementById(loc.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' }), 300);
   }, [v, loc.hash]);
 
   const votar = async (val) => { const n = like === val ? 0 : val; setLike(n); const r = await api(`/videos/${id}/like`, { cuerpo: { valor: n } }); setLikes(r.likes); };
@@ -36,9 +39,7 @@ export function Ver() {
     <div className="ver">
       <div>
         <div className={'marco' + (vert ? ' vert' : '')}>
-          <div style={vert ? { height: 'min(78vh, 900px)', aspectRatio: '9/16' } : { width: '100%' }}>
-            <Reproductor video={v} autoPlay={!!nuevo} estilo={vert ? { height: '100%', width: 'auto' } : {}} onFin={() => quizRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />
-          </div>
+          <Reproductor ref={repRef} video={v} autoPlay={!!nuevo} estilo={estiloVer} siguiente={recs[0] ? '/ver/' + recs[0].id : null} estiloCaja={vert ? { height: 'min(78vh, 900px)', aspectRatio: '9/16' } : { width: '100%' }} />
         </div>
         <h1 style={{ fontSize: 22, marginTop: 16, fontFamily: 'var(--fuente)', fontWeight: 800 }}>{v.titulo}</h1>
         <div className="entre" style={{ marginTop: 12, flexWrap: 'wrap' }}>
@@ -61,7 +62,13 @@ export function Ver() {
           </div>
           <div style={{ marginTop: 10 }}>Este video se generó para {v.autor?.split(' ')[0]} con sus gustos. Estructura: <b>gancho → contenido → reto</b>. Pausá, rebobiná y hacé el reto de abajo: todo eso le ayuda a tu profe a saber dónde te trabás.</div>
         </div>
-        <div id="quiz" ref={quizRef} style={{ marginTop: 22 }}>{v.quiz?.length > 0 && <Quiz video={v} />}</div>
+        <div className="card" style={{ marginTop: 16, padding: 16 }}>
+          <div className="entre" style={{ flexWrap: 'wrap', gap: 12 }}>
+            <div className="fila" style={{ gap: 8 }}><Palette size={18} color="var(--lima)" /><b>Mismo video, otro estilo</b><span className="dim" style={{ fontSize: 13 }}>· cambia al instante</span></div>
+            {v.quiz?.length > 0 && <button className="btn lima" onClick={() => { repRef.current?.abrirReto?.(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Target size={17} />{v.intento ? `Reto: ${v.intento.aciertos}/${v.intento.total} · repetir` : 'Hacer el reto'}</button>}
+          </div>
+          <div style={{ marginTop: 12 }}><SelectorEstilo compacto valor={estiloVer} onChange={setEstiloVer} /></div>
+        </div>
         <div id="comentarios"><Comentarios videoId={v.id} /></div>
       </div>
       <aside>

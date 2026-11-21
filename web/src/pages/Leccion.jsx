@@ -4,6 +4,7 @@ import { Upload, ScanLine, Save, Sparkles, BarChart3, FileText, Smartphone, Rect
 import { api, useSesion, hace } from '../api.js';
 import { Avatar, VideoCard } from '../components/ui.jsx';
 import { Generador } from '../components/Generador.jsx';
+import { SelectorEstilo } from '../components/SelectorEstilo.jsx';
 
 export function Leccion() {
   const { usuario } = useSesion();
@@ -13,6 +14,8 @@ export function Leccion() {
 // ---------------- ALUMNO ----------------
 function LeccionAlumno() {
   const { id } = useParams();
+  const { perfil } = useSesion();
+  const [estilo, setEstilo] = useState(perfil?.estilo || 'ilustrado');
   const [l, setL] = useState(null);
   const [mios, setMios] = useState([]);
   const [trabajo, setTrabajo] = useState(null);
@@ -25,7 +28,7 @@ function LeccionAlumno() {
     // truco de velocidad: el guion arranca mientras el alumno lee la pantalla
     api(`/lecciones/${id}/pregenerar`, { cuerpo: { formato: 'vertical' } }).catch(() => {});
   }, [id]);
-  const generar = async (formato) => { try { const d = await api(`/lecciones/${id}/generar`, { cuerpo: { formato } }); setTrabajo(d.trabajo); } catch (x) { setErr(x.message); } };
+  const generar = async (formato) => { try { const d = await api(`/lecciones/${id}/generar`, { cuerpo: { formato, estilo } }); setTrabajo(d.trabajo); } catch (x) { setErr(x.message); } };
   if (err) return <div className="vacio">{err}</div>;
   if (!l) return <div className="vacio">Cargando…</div>;
   return (
@@ -36,6 +39,7 @@ function LeccionAlumno() {
         <h1 style={{ marginTop: 12 }}>{l.titulo}</h1>
         {l.analisis?.resumen && <p className="muted" style={{ maxWidth: 700, fontSize: 16, lineHeight: 1.55 }}>{l.analisis.resumen}</p>}
         {l.analisis?.conceptos?.length > 0 && <div className="chips" style={{ marginTop: 6 }}>{l.analisis.conceptos.slice(0, 6).map((c) => <span key={c} className="chip">{c}</span>)}</div>}
+        <div style={{ marginTop: 22 }}><div className="dim" style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: '.08em', marginBottom: 8 }}>ESTILO DE ANIMACIÓN</div><SelectorEstilo valor={estilo} onChange={setEstilo} /></div>
         <div className="fila" style={{ marginTop: 22, flexWrap: 'wrap' }}>
           <button className="btn lima" style={{ height: 52, fontSize: 16 }} onClick={() => generar('vertical')}><Smartphone size={19} />Generar mi Short</button>
           <button className="btn" style={{ height: 52, fontSize: 16 }} onClick={() => generar('horizontal')}><RectangleHorizontal size={19} />Versión YouTube (más larga)</button>
@@ -161,11 +165,13 @@ function Contenido({ l, recargar }) {
 
 function Probar({ l }) {
   const [trabajo, setTrabajo] = useState(null);
-  const generar = async (formato) => { const d = await api(`/lecciones/${l.id}/generar`, { cuerpo: { formato } }); setTrabajo(d.trabajo); };
+  const [estilo, setEstilo] = useState('ilustrado');
+  const generar = async (formato) => { const d = await api(`/lecciones/${l.id}/generar`, { cuerpo: { formato, estilo } }); setTrabajo(d.trabajo); };
   return (
     <div className="card" style={{ maxWidth: 700 }}>
       <h2 style={{ fontSize: 18 }}>Probá cómo lo verán tus alumnos</h2>
       <div className="muted" style={{ fontSize: 14, marginTop: 6, lineHeight: 1.5 }}>Genera un video de muestra con el brief actual. Cada alumno recibe uno distinto, armado con sus gustos y su forma de aprender.</div>
+      <div style={{ marginTop: 16 }}><SelectorEstilo compacto valor={estilo} onChange={setEstilo} /></div>
       <div className="fila" style={{ marginTop: 16 }}><button className="btn lima" onClick={() => generar('vertical')}><Smartphone size={17} />Short de muestra</button><button className="btn" onClick={() => generar('horizontal')}><RectangleHorizontal size={17} />Horizontal</button></div>
       {trabajo && <Generador trabajo={trabajo} onCerrar={() => setTrabajo(null)} />}
     </div>
@@ -200,6 +206,7 @@ function Analitica({ id }) {
       <div className="kpis">
         <div className="kpi"><div className="l"><Users size={14} /> Alumnos con video</div><div className="n">{r.con_video}<span className="dim" style={{ fontSize: 18 }}>/{r.alumnos}</span></div></div>
         <div className="kpi"><div className="l"><Target size={14} /> Promedio del test</div><div className="n" style={{ color: r.promedio >= 60 ? 'var(--lima)' : 'var(--oro)' }}>{r.promedio ?? '—'}{r.promedio != null && '%'}</div></div>
+        <div className="kpi"><div className="l"><Lightbulb size={14} /> Pregunta en el video</div><div className="n">{r.en_video ?? '—'}{r.en_video != null && '%'}</div></div>
         <div className="kpi"><div className="l"><BadgeCheck size={14} /> Comprendieron</div><div className="n">{r.comprendieron}</div></div>
         <div className="kpi"><div className="l"><Play size={14} /> Vieron hasta el final</div><div className="n">{r.terminaron}%</div></div>
         <div className="kpi"><div className="l"><Clock size={14} /> Generación promedio</div><div className="n">{r.gen_s ?? '—'}<span className="dim" style={{ fontSize: 18 }}> s</span></div></div>
@@ -229,14 +236,14 @@ function Analitica({ id }) {
       <div className="card" style={{ overflowX: 'auto' }}>
         <h2 style={{ fontSize: 18, marginBottom: 12 }}>Alumnos</h2>
         <table className="tabla">
-          <thead><tr><th>Alumno</th><th>Su gancho</th><th>Visto</th><th>Pausas</th><th>Rebob.</th><th>Test</th><th>Aprende mejor</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Alumno</th><th>Su gancho</th><th>Visto</th><th>Pausas</th><th>Rebob.</th><th>Preg. video</th><th>Test</th><th>Aprende mejor</th><th>Estado</th></tr></thead>
           <tbody>
             {a.alumnos.map((x) => (
               <tr key={x.id}>
                 <td><div className="fila"><Avatar nombre={x.nombre} color={x.color} size={28} /><b style={{ fontSize: 14 }}>{x.nombre}</b></div></td>
                 <td style={{ maxWidth: 260 }}>{x.video_id ? <Link to={'/ver/' + x.video_id} style={{ fontSize: 13 }} className="muted">{x.gancho}</Link> : <span className="dim">—</span>}</td>
                 <td><div className="fila" style={{ gap: 8 }}><div className="barrita"><div style={{ width: x.visto + '%', background: 'var(--lima)' }} /></div><span className="mono" style={{ fontSize: 12 }}>{x.visto}%</span></div></td>
-                <td className="mono">{x.pausas}</td><td className="mono">{x.rebobinadas}</td>
+                <td className="mono">{x.pausas}</td><td className="mono">{x.rebobinadas}</td><td className="mono">{x.enVideo || '—'}</td>
                 <td className="mono" style={{ color: x.puntaje == null ? undefined : x.puntaje >= 60 ? 'var(--lima)' : 'var(--rojo)', fontWeight: 800 }}>{x.puntaje == null ? '—' : `${x.aciertos}/${x.total}`}</td>
                 <td style={{ fontSize: 12.5 }} className="muted">{(x.aprende || []).slice(0, 2).join(', ') || '—'}{x.traba && <div className="dim">se traba en: {x.traba}</div>}</td>
                 <td><span className={'badge ' + ESTADO[x.estado][1]}>{ESTADO[x.estado][0]}</span></td>

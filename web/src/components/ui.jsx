@@ -4,6 +4,7 @@ import { Home, Zap, GraduationCap, School, Search, LogOut, Sparkles, BarChart3, 
 import { useSesion, hace, dur, vistas, inicial } from '../api.js';
 import { PALETAS } from '../video/fx.jsx';
 import { codEmoji } from '../video/fx.jsx';
+import { ESTILOS, FiltrosEstilo, estiloDe, filtroEmoji } from '../video/estilos.jsx';
 
 export function Logo({ chico }) {
   return <Link to="/" className="logo"><span className="ico">[π]</span>{!chico && <span>math<b>trix</b></span>}</Link>;
@@ -44,6 +45,7 @@ export function Layout({ children }) {
         {prof && <NavLink to="/clases" className=""><BarChart3 size={21} />Analítica</NavLink>}
         <div className="mision"><b>Misión PISA</b>En PISA 2022 solo ~1 de cada 10 estudiantes de Guatemala llegó al nivel básico de matemática. Mathtrix existe para cambiar ese número.</div>
       </nav>
+      <FiltrosEstilo />
       <main className="main">{children}</main>
       <nav className="tabbar">
         {links.map((l) => <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => (isActive ? 'activo' : '')}><l.ico size={22} />{l.txt}</NavLink>)}
@@ -59,19 +61,31 @@ function textoGancho(t) {
   const partes = String(t || '').split(/(\*[^*]+\*)/g).filter(Boolean);
   return partes.map((p, i) => (p.startsWith('*') ? <mark key={i}>{p.replace(/\*/g, '')}</mark> : <span key={i}>{p}</span>));
 }
+const FONDO_POSTER = {
+  tiza: (P) => `radial-gradient(120% 90% at 50% 30%, ${P.f2}, ${P.f1} 75%)`,
+  blueprint: (P) => `linear-gradient(rgba(234,244,255,.08) 1px, transparent 1px) 0 0/14px 14px, linear-gradient(90deg, rgba(234,244,255,.08) 1px, transparent 1px) 0 0/14px 14px, radial-gradient(120% 90% at 50% 25%, ${P.f2}, ${P.f1} 80%)`,
+  manim: () => '#000',
+  cuaderno: () => 'repeating-linear-gradient(180deg, #fbf8f1 0 17px, #c9dcf2 17px 18px)',
+  neon: (P) => `linear-gradient(180deg, ${P.f1}, ${P.f2} 60%, #000)`,
+};
+const FUENTE_POSTER = { tiza: "'Cabin Sketch'", blueprint: "'Space Grotesk'", manim: "'STIX Two Text'", cuaderno: "'Kalam'", neon: "'Anton'" };
 export function Poster({ v, vert }) {
-  const P = PALETAS[v.poster?.paleta] || PALETAS.espacio;
+  const est = estiloDe(v.poster?.estilo || v.estilo);
+  const E = ESTILOS[est];
+  const P = E.P || { tx: '#fff', ...(PALETAS[v.poster?.paleta] || PALETAS.espacio) };
   const emoji = v.poster?.emoji || '🤯';
   const texto = v.poster?.texto || v.titulo;
   const largo = String(texto).length;
   return (
-    <div className={'poster' + (vert ? ' vert' : '')} style={{ '--ac': P.a }}>
-      <div className="bg" style={{ background: `radial-gradient(120% 90% at 30% 10%, ${P.f2}, ${P.f1} 65%, #000)` }} />
-      <div className="lluvia" style={{ color: P.c }}>{lluvia(v.id)}</div>
-      <div style={{ position: 'absolute', inset: 0, background: `repeating-conic-gradient(from ${v.id * 17}deg at ${vert ? '50% 32%' : '26% 50%'}, ${P.a}1c 0 9deg, transparent 9deg 22deg)`, WebkitMaskImage: `radial-gradient(circle at ${vert ? '50% 32%' : '26% 50%'}, #000, transparent 60%)` }} />
-      <img className="emo" alt="" src={`/emoji/${codEmoji(emoji)}`} style={vert ? { width: '62%', left: '19%', top: '12%' } : { width: '40%', left: '6%', top: '14%' }} loading="lazy" />
-      <div className="txt" style={vert ? { left: '7%', right: '7%', bottom: '14%', fontSize: largo > 45 ? 15 : 18, textAlign: 'center' } : { left: '47%', right: '5%', top: '50%', transform: 'translateY(-50%)', fontSize: largo > 45 ? 14 : largo > 32 ? 16.5 : 19 }}>{textoGancho(texto)}</div>
-      <div className="vign" />
+    <div className={'poster' + (vert ? ' vert' : '')} style={{ '--ac': E.claro || est === 'ilustrado' ? P.a : 'transparent', '--ac-tx': est === 'ilustrado' || E.claro ? '#0a0a12' : P.a }}>
+      <div className="bg" style={{ background: FONDO_POSTER[est] ? FONDO_POSTER[est](P) : `radial-gradient(120% 90% at 30% 10%, ${P.f2}, ${P.f1} 65%, #000)` }} />
+      {est === 'ilustrado' && <div className="lluvia" style={{ color: P.c }}>{lluvia(v.id)}</div>}
+      {(est === 'ilustrado' || est === 'neon') && <div style={{ position: 'absolute', inset: 0, background: `repeating-conic-gradient(from ${v.id * 17}deg at ${vert ? '50% 32%' : '26% 50%'}, ${P.a}1c 0 9deg, transparent 9deg 22deg)`, WebkitMaskImage: `radial-gradient(circle at ${vert ? '50% 32%' : '26% 50%'}, #000, transparent 60%)` }} />}
+      {est === 'tiza' && <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 0 0 6px #5b3d22' }} />}
+      <img className="emo" alt="" src={`/emoji/${codEmoji(emoji)}`} style={{ ...(vert ? { width: '62%', left: '19%', top: '12%' } : { width: '40%', left: '6%', top: '14%' }), filter: est === 'ilustrado' ? undefined : filtroEmoji(est, E, P, false) }} loading="lazy" />
+      <div className="txt" style={{ ...(vert ? { left: '7%', right: '7%', bottom: '14%', fontSize: largo > 45 ? 15 : 18, textAlign: 'center' } : { left: '47%', right: '5%', top: '50%', transform: 'translateY(-50%)', fontSize: largo > 45 ? 14 : largo > 32 ? 16.5 : 19 }), color: P.tx, ...(FUENTE_POSTER[est] ? { fontFamily: FUENTE_POSTER[est], fontWeight: 700, fontSize: (largo > 45 ? 15 : 19) * (est === 'neon' ? 1.15 : 1.1) } : {}), textShadow: est === 'neon' ? `0 0 10px ${P.b}` : E.claro || est === 'manim' ? 'none' : undefined }}>{textoGancho(texto)}</div>
+      {!E.claro && est !== 'manim' && <div className="vign" />}
+      {est !== 'ilustrado' && <div className="badge" style={{ position: 'absolute', right: 8, top: 8, background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 10.5 }}>{E.nombre}</div>}
       <div className="tag"><span style={{ color: P.a }}>[</span>mathtrix<span style={{ color: P.a }}>]</span></div>
       {v.duracion ? <div className="dur">{dur(v.duracion)}</div> : null}
     </div>

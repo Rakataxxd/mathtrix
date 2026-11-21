@@ -4,12 +4,14 @@ import { Sparkles, Zap, Flame, RectangleHorizontal, Smartphone } from 'lucide-re
 import { api, useSesion } from '../api.js';
 import { VideoCard } from '../components/ui.jsx';
 import { Generador } from '../components/Generador.jsx';
+import { SelectorEstilo } from '../components/SelectorEstilo.jsx';
 
 const TEMAS = ['Todo', 'Volumen', 'Velocidad', 'Porcentajes', 'Ecuaciones', 'Probabilidad', 'Fracciones', 'Área', 'Pitágoras', 'Funciones'];
 const IDEAS = ['Probabilidad de ganar la lotería', 'Volumen de una pizza gigante', 'Teorema de Pitágoras en una cancha', 'Interés compuesto para ser millonario'];
 
 export function Inicio() {
-  const { usuario } = useSesion();
+  const { usuario, perfil } = useSesion();
+  const [estilo, setEstilo] = useState(perfil?.estilo || 'ilustrado');
   const [params, setParams] = useSearchParams();
   const [vids, setVids] = useState(null);
   const [tema, setTema] = useState('Todo');
@@ -26,7 +28,7 @@ export function Inicio() {
   const crear = async (e) => {
     e?.preventDefault(); setErr(null);
     if (!idea.trim()) return inp.current?.focus();
-    try { const d = await api('/generar-libre', { cuerpo: { tema: idea, formato } }); setTrabajo(d.trabajo); } catch (x) { setErr(x.message); }
+    try { const d = await api('/generar-libre', { cuerpo: { tema: idea, formato, estilo } }); setTrabajo(d.trabajo); } catch (x) { setErr(x.message); }
   };
   const filtro = (v) => tema === 'Todo' || (v.tema + ' ' + v.titulo).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(tema.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').slice(0, 6));
   const lista = (vids || []).filter(filtro);
@@ -46,7 +48,8 @@ export function Inicio() {
             </div>
             <button className="btn lima" style={{ height: 50 }}><Sparkles size={17} />Generar</button>
           </form>
-          <div className="chips" style={{ marginTop: 14 }}>{IDEAS.map((x) => <button key={x} className="chip" onClick={() => setIdea(x)}>{x}</button>)}</div>
+          <div style={{ marginTop: 14, maxWidth: 760 }}><SelectorEstilo compacto valor={estilo} onChange={setEstilo} /></div>
+          <div className="chips" style={{ marginTop: 10 }}>{IDEAS.map((x) => <button key={x} className="chip" onClick={() => setIdea(x)}>{x}</button>)}</div>
           {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
           <div className="flot" style={{ fontSize: 22, lineHeight: 1.6 }}>V = 4/3·π·r³<br /><span style={{ color: 'var(--rosa)' }}>v = d ÷ t</span><br /><span style={{ color: 'var(--cian)' }}>P = 1/37</span></div>
         </section>
