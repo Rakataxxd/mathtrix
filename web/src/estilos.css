@@ -457,3 +457,9 @@ label.lab, .lab { display: block; font-size: 12.5px; font-weight: 600; color: va
 
 .lote-fila { padding: 12px 14px; border-radius: 16px; background: var(--v1); border: 1px solid var(--linea); }
 .lote-fila + .lote-fila { margin-top: 8px; }
+
+/* checkpoints de preguntas sobre la barra de avance del reproductor */
+.mtx-checks { position: absolute; left: 14px; right: 14px; bottom: 12px; height: 12px; z-index: 3; pointer-events: none; }
+.mtx-checks span { position: absolute; top: 0; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #ffd23b; border: 2px solid #fff; box-shadow: 0 0 8px rgba(255,210,59,.8); }
+.mtx-checks span.bien { background: #3bdc7a; box-shadow: 0 0 8px rgba(59,220,122,.8); }
+.mtx-checks span.mal { background: #ff5b6b; box-shadow: 0 0 8px rgba(255,91,107,.8); }

@@ -138,6 +138,14 @@ export const Reproductor = forwardRef(function Reproductor({ video, autoPlay, co
           acknowledgeRemotionLicense
           style={{ width: '100%', height: '100%' }}
         />
+        {controles && !pregunta && !reto && !duda && (
+          <div className="mtx-checks" aria-hidden="true">
+            {tl.escenas.filter((e) => e.tipo === 'pregunta').map((e) => {
+              const r = elecciones[e.i];
+              return <span key={e.i} className={r === undefined ? '' : r === e.correcta ? 'bien' : 'mal'} style={{ left: `${((e.inicio + e.q) / tl.duracion) * 100}%` }} title="Pregunta" />;
+            })}
+          </div>
+        )}
         {pregunta && (
           <div className="mtx-pregunta" style={varsEstilo(clave, P)}>
             {pregunta.opciones.slice(0, 3).map((o, i) => (

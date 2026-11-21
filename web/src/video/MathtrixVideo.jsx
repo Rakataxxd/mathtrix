@@ -10,7 +10,7 @@ import { ESTILOS, EstiloCtx, estiloDe, varsEstilo, FiltrosEstilo, tono } from '.
 const ESCENAS = { gancho: Gancho, datos: Datos, formula: Formula, paso: Paso, resultado: Resultado, iconos: Iconos, fraccion: Fraccion, comparacion: Comparacion, grafica: Grafica, cta: Cta, pregunta: Pregunta, revision: Revision };
 const PARTE = (t) => (t === 'gancho' ? 0 : t === 'cta' ? 2 : 1);
 
-function Barra({ tl, P }) {
+function Barra({ tl, P, el = {} }) {
   const f = useCurrentFrame();
   const { v } = useVert();
   const partes = [0, 1, 2].map((k) => {
@@ -24,7 +24,28 @@ function Barra({ tl, P }) {
     <div style={{ position: 'absolute', left: v ? 40 : 60, right: v ? 40 : 60, top: v ? 52 : 26, display: 'flex', gap: 10 }}>
       {partes.map((x) => (
         <div key={x.k} style={{ flex: x.peso }}>
-          <div style={{ height: 8, borderRadius: 9, background: tono(P.tx, 0.22), overflow: 'hidden' }}><div style={{ height: '100%', width: `${x.p * 100}%`, background: P.a, boxShadow: `0 0 12px ${P.a}` }} /></div>
+          <div style={{ position: 'relative' }}>
+            <div style={{ height: 8, borderRadius: 9, background: tono(P.tx, 0.22), overflow: 'hidden' }}><div style={{ height: '100%', width: `${x.p * 100}%`, background: P.a, boxShadow: `0 0 12px ${P.a}` }} /></div>
+            {/* checkpoints: donde el video se va a pausar para preguntar */}
+            {tl.escenas.filter((e) => e.tipo === 'pregunta' && PARTE(e.tipo) === x.k).map((e) => {
+              const es = tl.escenas.filter((z) => PARTE(z.tipo) === x.k);
+              const ini = es[0].inicio, fin = es.at(-1).inicio + es.at(-1).duracion;
+              const corte = e.inicio + e.q;
+              const pos = (corte - ini) / (fin - ini);
+              const r = el[e.i];
+              const estado = r === undefined ? (f >= corte ? 'aqui' : 'pend') : r === e.correcta ? 'bien' : 'mal';
+              const cerca = estado === 'pend' && corte - f < 90 && corte - f > 0;
+              const tam = v ? 52 : 46;
+              const fondo = estado === 'bien' ? '#3bdc7a' : estado === 'mal' ? '#ff5b6b' : estado === 'aqui' ? P.a : tono(P.f1, 0.85);
+              return (
+                <div key={e.i} style={{ position: 'absolute', left: `${pos * 100}%`, top: 4, width: tam, height: tam, marginLeft: -tam / 2, marginTop: -tam / 2, borderRadius: '50%', display: 'grid', placeItems: 'center',
+                  background: fondo, border: `3px solid ${estado === 'pend' ? P.a : '#fff'}`, color: estado === 'pend' ? P.a : '#0b0420', fontFamily: DISPLAY, fontWeight: 900, fontSize: tam * 0.52,
+                  boxShadow: `0 0 ${cerca ? 18 + 10 * Math.sin(f / 4) : 8}px ${P.a}`, transform: `scale(${cerca ? 1 + 0.12 * Math.sin(f / 4) : 1})` }}>
+                  {estado === 'bien' ? '✓' : estado === 'mal' ? '✗' : '?'}
+                </div>
+              );
+            })}
+          </div>
           <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: v ? 20 : 16, letterSpacing: '.12em', color: x.p > 0 && x.p < 1 ? P.tx : tono(P.tx, 0.4), marginTop: 8 }}>{nombres[x.k]}</div>
         </div>
       ))}
@@ -96,7 +117,7 @@ export function MathtrixVideo({ tl, estilo, elecciones, sinSonidos }) {
             })}
             <PrimerPlano P={P} />
             <Acabado />
-            <Barra tl={tl} P={P} />
+            <Barra tl={tl} P={P} el={el} />
             <Marca P={P} />
           </AbsoluteFill>
         </EleccionesCtx.Provider>
