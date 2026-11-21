@@ -1,0 +1,20 @@
+// Capturas de Aportar y del precio en la landing (headless, sin audio).
+import { chromium } from 'playwright-core';
+const BASE = process.env.BASE || 'http://127.0.0.1:8110';
+const OUT = 'C:/Users/usuario/proyectos/mathtrix/data/capturas/';
+const b = await chromium.launch({ headless: true, executablePath: 'C:/Users/usuario/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe', args: ['--mute-audio', '--enable-gpu', '--use-angle=d3d11', '--ignore-gpu-blocklist'] });
+const errores = [];
+const p = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+p.on('pageerror', (e) => errores.push(e.message));
+await p.goto(BASE); await p.waitForTimeout(1500);
+await p.locator('.precio-landing').scrollIntoViewIfNeeded(); await p.waitForTimeout(600);
+await p.screenshot({ path: OUT + 'a-landing-precio.png' });
+const r = await p.evaluate(async () => (await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'sofi@demo.gt', clave: 'mathtrix' }) })).json());
+await p.evaluate((t) => localStorage.setItem('mtx_token', t), r.token);
+await p.goto(BASE + '/aportar'); await p.waitForTimeout(1500);
+await p.screenshot({ path: OUT + 'a-aportar.png', fullPage: true });
+const m = await (await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
+await m.goto(BASE); await m.evaluate((t) => localStorage.setItem('mtx_token', t), r.token);
+await m.goto(BASE + '/aportar'); await m.waitForTimeout(1500); await m.screenshot({ path: OUT + 'a-aportar-movil.png', fullPage: true });
+console.log(errores.length ? 'ERRORES ' + errores.join(' | ') : 'sin errores');
+await b.close();

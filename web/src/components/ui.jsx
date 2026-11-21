@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Home, Zap, School, Search, LogOut, Plus, UserRound, GraduationCap, Sparkles, Smartphone, RectangleHorizontal, X, Sun, Moon, Camera, Trophy } from 'lucide-react';
+import { Home, Zap, School, Search, LogOut, Plus, UserRound, GraduationCap, Sparkles, Smartphone, RectangleHorizontal, X, Sun, Moon, Camera, Trophy, HeartHandshake } from 'lucide-react';
 import { useSesion, api, hace, dur, vistas, inicial, getTema, setTema } from '../api.js';
 import { PALETAS, codEmoji } from '../video/fx.jsx';
 import { ESTILOS, FiltrosEstilo, estiloDe, filtroEmoji } from '../video/estilos.jsx';
@@ -97,6 +97,7 @@ export function Layout({ children }) {
     { to: '/shorts', ico: Zap, txt: 'Shorts' },
     { to: '/clases', ico: School, txt: 'Clases' },
     { to: '/aprender', ico: prof ? GraduationCap : Trophy, txt: prof ? 'Ranking' : 'Progreso' },
+    { to: '/aportar', ico: HeartHandshake, txt: 'Aportar' },
   ];
   return (
     <>

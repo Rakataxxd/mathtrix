@@ -12,6 +12,7 @@ import { Ver } from './pages/Ver.jsx';
 import { Aprender } from './pages/Aprender.jsx';
 import { Clases, Curso } from './pages/Clases.jsx';
 import { Leccion } from './pages/Leccion.jsx';
+import { Aportar } from './pages/Aportar.jsx';
 
 function App() {
   const [ses, setSes] = useState({ cargando: !!getToken(), usuario: null, perfil: null });
@@ -41,6 +42,7 @@ function App() {
           <Route path="/curso/:id" element={<Curso />} />
           <Route path="/leccion/:id" element={<Leccion />} />
           <Route path="/perfil" element={<Onboarding editar />} />
+          <Route path="/aportar" element={<Aportar />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Layout>

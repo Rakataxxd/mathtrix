@@ -46,6 +46,43 @@ Desarrollo con recarga: `npm run server` + `npm run dev` (Vite en 5173 con proxy
   de la clase o global (semana / siempre). Repetir un reto no suma.
 - **Modo claro** por defecto; oscuro desde el menú (los Shorts siempre oscuros).
 
+## Precio
+
+Con **$10 generás 650+ videos** (menos de 2 centavos por video; medido: ~$0.004 por video con caché y hasta ~$0.015 sin caché).
+
+## Aportar a la comunidad (API + CLI)
+
+Cualquiera con Claude Code (su suscripción o su API key) puede generar videos para todos, sin costo para la plataforma:
+la IA corre en la compu del aportante y el servidor solo valida (sympy verifica cada cuenta), pone voz gratis y publica.
+
+1. En la web: **Aportar** → *Generar mi clave*.
+2. En la terminal (Node 18+ y `claude` con sesión iniciada):
+
+```
+# Windows (PowerShell)
+irm https://TU-SERVIDOR/aportar.mjs -OutFile aportar.mjs
+node aportar.mjs --clave mtxk_... --cantidad 100 --paralelo 3
+
+# Mac / Linux
+curl -sO https://TU-SERVIDOR/aportar.mjs
+node aportar.mjs --clave mtxk_... --cantidad 100 --paralelo 3
+```
+
+Opciones: `--cantidad n`, `--sin-fin`, `--paralelo 1-8`, `--formato horizontal|vertical|mixto`, `--modelo`, `--servidor`.
+El código está en `cli/aportar.mjs` (un archivo, sin dependencias). Claude corre **sin herramientas** (`--tools ""`) en una
+carpeta temporal vacía: solo escribe texto. Si el plan llega a su límite, pausa 5 min y sigue.
+
+API (header `x-mathtrix-clave`):
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| GET | `/api/comunidad/estado` | total de videos, aportados hoy, ranking de aportantes (público) |
+| GET | `/api/comunidad/tareas?n=5&formato=mixto` | tareas pendientes (tema × personaje × formato) con el prompt listo para Claude |
+| POST | `/api/comunidad/aporte` `{tarea, guion, ms}` | valida el guion, calcula, pone voz y publica; devuelve `{video_id, url, titulo}` |
+| POST | `/api/comunidad/clave` (sesión web) | crea o cambia tu clave |
+
+Reglas: 150 aportes por hora por clave, filtro de contenido para estudiantes, y se descarta todo guion cuya cuenta no cierre.
+
 ## Data que se registra
 
 Play, pausa, rebobinar, salto, fin, latidos cada 5 s, pestaña oculta, velocidad, likes, comentarios y cada

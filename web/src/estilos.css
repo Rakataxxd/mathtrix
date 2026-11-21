@@ -229,9 +229,9 @@ label.lab, .lab { display: block; font-size: 12.5px; font-weight: 600; color: va
 .l-sec > h2 { font-size: clamp(24px, 3vw, 34px); letter-spacing: -.04em; margin-bottom: 20px; }
 .l-tres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .l-tres .card { padding: 24px; } .l-tres h3 { font-size: 17px; margin: 14px 0 6px; } .l-tres p { margin: 0; color: var(--tx2); font-size: 14.5px; line-height: 1.55; }
-.l-estilos { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.l-estilos { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 .l-estilos > div { border-radius: 14px; overflow: hidden; aspect-ratio: 16/9; border: 1px solid var(--linea); position: relative; }
-.l-estilos span { position: absolute; left: 8px; bottom: 6px; font-size: 11.5px; font-weight: 700; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+.l-estilos span { position: absolute; left: 8px; bottom: 6px; font-size: 11.5px; font-weight: 700; color: #fff; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.55); }
 .l-pie { text-align: center; color: var(--tx3); font-size: 13px; padding: 30px 20px 50px; }
 @media (max-width: 900px) { .l-hero { grid-template-columns: 1fr; padding-top: 100px; text-align: center; } .l-hero p { margin-left: auto; margin-right: auto; } .l-hero .fila { justify-content: center; } .l-tres { grid-template-columns: 1fr; } .l-estilos { grid-template-columns: repeat(3, 1fr); } .l-flota { display: none; } }
 .auth { width: min(420px, 100%); }
@@ -463,3 +463,13 @@ label.lab, .lab { display: block; font-size: 12.5px; font-weight: 600; color: va
 .mtx-checks span { position: absolute; top: 0; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #ffd23b; border: 2px solid #fff; box-shadow: 0 0 8px rgba(255,210,59,.8); }
 .mtx-checks span.bien { background: #3bdc7a; box-shadow: 0 0 8px rgba(59,220,122,.8); }
 .mtx-checks span.mal { background: #ff5b6b; box-shadow: 0 0 8px rgba(255,91,107,.8); }
+
+/* ---------- aportar / precio ---------- */
+.paso-n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--prim); color: var(--prim-tx); font: 700 12px var(--mono); margin-right: 8px; vertical-align: 2px; }
+.cmd { position: relative; margin-top: 12px; border-radius: 14px; background: #0d0d12; color: #e8e8ee; padding: 12px 14px; border: 1px solid var(--linea); }
+.cmd pre { margin: 0; font: 500 13px/1.6 var(--mono); white-space: pre-wrap; word-break: break-all; padding-right: 86px; }
+.cmd .btn { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.15); }
+.cmd-et { display: flex; align-items: center; gap: 5px; font: 600 11px var(--mono); color: rgba(232,232,238,.5); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em; }
+.precio-gde { font-size: clamp(26px, 3.4vw, 40px); font-weight: 800; letter-spacing: -.04em; line-height: 1.08; margin: 6px 0 8px; }
+.precio-gde b { color: var(--acento-tx); }
+.precio-landing { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 28px; }

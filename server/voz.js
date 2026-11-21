@@ -70,9 +70,10 @@ async function eleven(texto, voz, velocidad, key) {
 }
 
 /** frases: [{texto}] ya en palabras habladas. Devuelve [{audio, palabras, duracion}|{error}] en el mismo orden. */
-export async function sintetizar(frases, { voz = 'Andres', vertical = true } = {}) {
+export async function sintetizar(frases, { voz = 'Andres', vertical = true, gratis = false } = {}) {
   voz = voz === 'Marta' ? 'Marta' : 'Andres';
-  const usarEleven = estadoVoz.proveedor() === 'elevenlabs';
+  // gratis: videos de la comunidad (voz neural sin costo, no gasta saldo de ElevenLabs)
+  const usarEleven = !gratis && estadoVoz.proveedor() === 'elevenlabs';
   const velocidad = vertical ? 1.1 : 1.02;
   const rate = vertical ? '+14%' : '+8%';
   const res = new Array(frases.length);

@@ -62,6 +62,10 @@ CREATE INDEX IF NOT EXISTS ix_videos_leccion ON videos(leccion_id, autor_id);
 CREATE TABLE IF NOT EXISTS dudas(
   id INTEGER PRIMARY KEY, usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE, video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
   t REAL, escena INTEGER, escena_tipo TEXT, pregunta TEXT NOT NULL, respuesta TEXT, creado TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS claves_api(clave TEXT PRIMARY KEY, usuario_id INTEGER UNIQUE REFERENCES usuarios(id) ON DELETE CASCADE, creado TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS aportes(
+  id INTEGER PRIMARY KEY, usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE, video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+  tema TEXT, persona TEXT, formato TEXT, ms INTEGER, creado TEXT DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS revisiones(
   id INTEGER PRIMARY KEY, usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE, leccion_id INTEGER,
   archivo TEXT, analisis TEXT, video_id INTEGER, creado TEXT DEFAULT (datetime('now')));

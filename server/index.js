@@ -5,7 +5,8 @@ import { randomBytes, scryptSync, timingSafeEqual, randomUUID } from 'node:crypt
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { db, uno, todos, correr, json, DATA, RAIZ } from './db.js';
-import { generarVideo, suscribir, trabajos, emitir } from './generador.js';
+import { generarVideo, suscribir, trabajos, emitir, videoDesdeGuion } from './generador.js';
+import { claveDe, usuarioDeClave, tareas as tareasComunidad, reserva, soltar, contenidoProhibido, dentroDelLimite, rankingComunidad } from './comunidad.js';
 import { precalentar } from './motor.js';
 import { claude, ollama, extraerJSON } from './ia.js';
 import { SISTEMA_CLASE, promptClase, SISTEMA_DUDA, promptDuda, SISTEMA_REVISION, notaRevision, NOTA_BASE } from './prompts.js';
@@ -396,6 +397,43 @@ app.post('/api/revisar', req(), subir.single('foto'), async (r, s) => {
   s.json({ trabajo: generarVideo({ usuario: r.u, leccion: { id: l?.id, titulo: 'Revisión', tema: l?.tema || 'Revisión' }, formato, publico: false, tipo: 'revision', estilo: estiloOk(r.body?.estilo), antes, despues }) });
 });
 app.get('/api/revisiones', req(), (r, s) => s.json(todos('SELECT id, leccion_id, analisis, video_id, creado FROM revisiones WHERE usuario_id=? ORDER BY id DESC LIMIT 20', r.u.id).map((x) => ({ ...x, analisis: json(x.analisis) }))));
+
+
+// ---------- comunidad: API para aportar videos con tu propio Claude (CLI) ----------
+// La IA corre en la compu del aportante (su suscripcion o su API key); aca solo se valida, se calcula y se publica.
+app.get('/api/comunidad/estado', (r, s) => s.json(rankingComunidad(r.u?.id)));
+app.get('/api/comunidad/yo', req(), (r, s) => s.json({ clave: uno('SELECT clave FROM claves_api WHERE usuario_id=?', r.u.id)?.clave || null, ...rankingComunidad(r.u.id) }));
+app.post('/api/comunidad/clave', req(), (r, s) => s.json({ clave: claveDe(r.u.id, !!r.body?.rotar) }));
+function porClave(r, s, n) {
+  const c = r.headers['x-mathtrix-clave'] || (r.headers.authorization || '').replace('Bearer ', '');
+  const u = usuarioDeClave(c);
+  if (!u) return s.status(401).json({ error: 'Clave inválida. Sacá la tuya en Mathtrix → Aportar.' });
+  r.u = u; n();
+}
+app.get('/api/comunidad/tareas', porClave, (r, s) => {
+  s.json({ tareas: tareasComunidad(r.u, +r.query.n || 5, String(r.query.formato || 'mixto')), modelo: 'claude-haiku-5-5' });
+});
+app.post('/api/comunidad/aporte', porClave, async (r, s) => {
+  const res = reserva(String(r.body?.tarea || ''));
+  if (!res || res.usuario !== r.u.id) return s.status(404).json({ error: 'Tarea vencida o ajena: pedí tareas nuevas.' });
+  if (!dentroDelLimite(r.u.id)) return s.status(429).json({ error: 'Límite de 150 aportes por hora. Seguí en un rato.' });
+  const guion = r.body?.guion;
+  if (!guion || JSON.stringify(guion).length > 60000) return s.status(400).json({ error: 'Guion vacío o demasiado largo' });
+  if (contenidoProhibido(typeof guion === 'string' ? guion : JSON.stringify(guion))) { soltar(r.body.tarea); return s.status(422).json({ error: 'Contenido no apto para estudiantes' }); }
+  try {
+    const v = await videoDesdeGuion({ guion, usuario: r.u, leccion: { tema: res.tema }, formato: res.formato, estilo: res.estilo, voz: res.voz, msIA: Math.max(0, Math.min(600000, +r.body?.ms || 0)) });
+    correr('INSERT INTO aportes(usuario_id, video_id, tema, persona, formato, ms) VALUES(?,?,?,?,?,?)', r.u.id, v.id, res.tema, res.persona, res.formato, +r.body?.ms || null);
+    soltar(r.body.tarea);
+    s.json({ ok: true, video_id: v.id, titulo: v.titulo, url: `/ver/${v.id}`, verificado: v.verificado });
+  } catch (e) {
+    s.status(422).json({ error: String(e.message || e).slice(0, 300) });
+  }
+});
+// la herramienta de linea de comandos se descarga del mismo servidor, ya apuntando a el
+app.get('/aportar.mjs', (r, s) => {
+  const base = `${r.headers['x-forwarded-proto'] || r.protocol}://${r.headers['x-forwarded-host'] || r.headers.host}`;
+  s.type('text/javascript; charset=utf-8').send(readFileSync(join(RAIZ, 'cli', 'aportar.mjs'), 'utf8').replace('__SERVIDOR__', base));
+});
 
 
 // ---------- estaticos ----------

@@ -165,13 +165,13 @@ function armarQuiz(g, valores, seed) {
   });
 }
 
-async function ponerVoz(g, voz, formato) {
+async function ponerVoz(g, voz, formato, gratis = false) {
   const items = [];
   for (const e of g.escenas) {
     items.push({ e, campo: '', texto: paraVoz(e.narracion) });
     if (e.tipo === 'pregunta') for (const k of ['si_bien', 'si_mal']) items.push({ e, campo: k, texto: paraVoz(e[k]) });
   }
-  const r = await sintetizar(items.map((x) => ({ texto: x.texto })), { voz, vertical: formato === 'vertical' });
+  const r = await sintetizar(items.map((x) => ({ texto: x.texto })), { voz, vertical: formato === 'vertical', gratis });
   let fallos = 0;
   items.forEach((x, n) => {
     const v = r[n], e = x.e;
@@ -342,4 +342,22 @@ export function generarVideo({ usuario, leccion, formato = 'horizontal', publico
     }
   })();
   return id;
+}
+
+/** Guion ya escrito (por la IA de un aportante de la comunidad) -> video publicado.
+ *  Mismas validaciones que un video normal: esquema, sympy calcula y verifica, voz, timeline y reto. */
+export async function videoDesdeGuion({ guion, usuario, leccion, formato = 'horizontal', estilo = 'ilustrado', voz = 'Andres', publico = true, tipo = 'comunidad', motor: motorUsado = 'comunidad', gratis = true, msIA = 0 }) {
+  const t0 = Date.now();
+  const g = normalizar(typeof guion === 'string' ? extraerJSON(guion) : guion, formato);
+  const r = await calcular(g);
+  const faltan = sustituir(g, r.valores);
+  if (faltan > 2) throw new Error('valores sin calcular: ' + faltan);
+  await ponerVoz(g, voz, formato, gratis);
+  const tl = timeline(g, formato, r.valores, estilo);
+  const quiz = armarQuiz(g, r.valores, Date.now());
+  const ms = msIA + (Date.now() - t0);
+  const res = correr(`INSERT INTO videos(leccion_id, autor_id, titulo, tema, etiquetas, estilo, formato, timeline, quiz, duracion, motor, publico, verificado, ms_generacion, tipo, plantilla)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, null, usuario.id, g.titulo, leccion.tema, JSON.stringify(g.etiquetas), g.estilo_gancho || null, formato,
+    JSON.stringify(tl), JSON.stringify(quiz), tl.duracion / FPS, motorUsado, publico ? 1 : 0, 1, ms, tipo, tl.estilo || null);
+  return { id: Number(res.lastInsertRowid), titulo: g.titulo, duracion: tl.duracion / FPS, verificado: !!r.verificado };
 }

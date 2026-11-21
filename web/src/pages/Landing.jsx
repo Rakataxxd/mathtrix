@@ -110,6 +110,16 @@ export function Landing() {
           ))}
         </div>
       </section>
+      <section className="l-sec">
+        <div className="card precio precio-landing">
+          <div>
+            <div className="dim" style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.08em' }}>PRECIO</div>
+            <div className="precio-gde">Con <b>$10</b> generás <b>650+</b> videos</div>
+            <div className="muted" style={{ fontSize: 15 }}>Menos de 2 centavos por video personalizado, con su pregunta, su reto y su verificación.</div>
+          </div>
+          <button className="btn lima grande" onClick={() => setAuth({ modo: 'registro' })}>Empezar gratis <ArrowRight size={17} /></button>
+        </div>
+      </section>
       <div className="l-pie">En PISA 2022, cerca de 1 de cada 10 estudiantes de Guatemala alcanzó el nivel básico de matemática. Mathtrix existe para cambiar ese número.</div>
       {auth && <Auth inicial={auth} onCerrar={() => setAuth(null)} />}
     </div>
